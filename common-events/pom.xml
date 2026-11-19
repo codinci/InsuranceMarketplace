@@ -13,4 +13,22 @@
   <artifactId>common-events</artifactId>
   <name>common-events</name>
   <description>Event contracts shared between services. Contracts only, no logic.</description>
+
+  <dependencies>
+    <!-- JSON annotations on the envelope (the wire format is JSON). -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>tools.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 </project>
