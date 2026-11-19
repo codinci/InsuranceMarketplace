@@ -1,0 +1,25 @@
+# Build output
+target/
+*.class
+*.log
+
+# Local environment and secrets (.env.example is committed)
+.env
+.env.*
+!.env.example
+
+# Private reference material: never commit brochures or PDFs derived from them
+reference/
+*.pdf
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Claude Code local settings (shared .claude/settings.json is committed)
+.claude/settings.local.json
+
+#Project plan
+PLAN.md
