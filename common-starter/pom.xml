@@ -15,6 +15,11 @@
   <description>Cross-cutting code only: error format, correlation ID, logging, role constants. No domain code.</description>
 
   <dependencies>
+    <!-- Servlet filter and auto-configuration for the shared web pieces. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
