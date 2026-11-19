@@ -21,5 +21,3 @@ reference/
 # Claude Code local settings (shared .claude/settings.json is committed)
 .claude/settings.local.json
 
-#Project plan
-PLAN.md
