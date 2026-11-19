@@ -12,7 +12,17 @@ Spring Boot microservices for a multi-insurer medical insurance marketplace. The
 
 ```bash
 bash scripts/setup-hooks.sh   # enables the pre-commit gate
+cp .env.example .env          # local secrets for the compose stack; replace every value
 ```
+
+## Run the infrastructure
+
+```bash
+docker compose --profile infra up -d          # Postgres, Kafka, SeaweedFS
+docker compose --profile full up -d --build   # also hello-service on http://localhost:${HELLO_HOST_PORT:-8080} (set it in .env)
+```
+
+See [docs/runbook.md](docs/runbook.md) for ports, checks and troubleshooting.
 
 ## Common commands
 
@@ -25,4 +35,4 @@ bash scripts/verify.sh                # the full gate, as CI runs it
 
 ## Status
 
-M0a (build, quality gates, CI, walking skeleton) is in progress. See the status tracker in [PLAN.md](PLAN.md) section 21.7.
+M0a (build, quality gates, CI, walking skeleton) is done. M0b (local infrastructure, event envelope, correlation IDs) is in progress. See the status tracker in [PLAN.md](PLAN.md) section 21.7.

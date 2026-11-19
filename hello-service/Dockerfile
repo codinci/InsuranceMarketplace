@@ -5,6 +5,8 @@ COPY pom.xml ./
 COPY common-events ./common-events
 COPY common-starter ./common-starter
 COPY hello-service ./hello-service
+# The reactor lists every module, so infra-tests must exist even though it is not built here.
+COPY infra-tests ./infra-tests
 RUN mvn -B -q -pl hello-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre

@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/hello")
 public class HelloController {
 
-  private static final Logger log = LoggerFactory.getLogger(HelloController.class);
+  private static final Logger LOG = LoggerFactory.getLogger(HelloController.class);
 
   @GetMapping
   public Map<String, String> hello() {
     // No request data is logged. The correlation id reaches the log line through the MDC.
-    log.info("hello request served");
+    LOG.info("hello request served");
     return Map.of("service", "hello-service", "customerRole", Roles.CUSTOMER);
   }
 }
