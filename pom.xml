@@ -23,6 +23,7 @@
     <module>common-events</module>
     <module>common-starter</module>
     <module>hello-service</module>
+    <module>infra-tests</module>
   </modules>
 
   <properties>
