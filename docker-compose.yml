@@ -129,6 +129,33 @@ services:
         aws --endpoint-url http://seaweedfs:8333 s3api create-bucket --bucket insurance-documents
     restart: "no"
 
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    profiles: [full]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JAVA_OPTS: "-Xmx256m"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: insurance
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # Without this key the service refuses to start. Generate it as described in docs/runbook.md.
+      AUTH_JWT_PRIVATE_KEY_BASE64: ${AUTH_JWT_PRIVATE_KEY_BASE64}
+      AUTH_SEED_PLATFORM_ADMIN_EMAIL: ${AUTH_SEED_PLATFORM_ADMIN_EMAIL:-}
+      AUTH_SEED_PLATFORM_ADMIN_PASSWORD: ${AUTH_SEED_PLATFORM_ADMIN_PASSWORD:-}
+    ports:
+      - "127.0.0.1:${AUTH_HOST_PORT:-8081}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    mem_limit: 384m
+
   hello-service:
     build:
       context: .

@@ -12,8 +12,9 @@ step "Maven: format, style, static analysis, architecture, tests, coverage"
 ./mvnw -B clean verify
 
 step "OpenAPI diff"
-# No service exposes an OpenAPI spec until M1 (auth-service). The diff step is added with it.
-echo "skipped: no OpenAPI specs are committed yet (first one arrives at M1)"
+# Enforced inside the Maven build: auth-service's OpenApiSnapshotIT compares the generated spec with
+# docs/openapi/auth-service.json. Nothing more to run here until another service publishes a spec.
+echo "covered by OpenApiSnapshotIT in the Maven step above (auth-service)"
 
 step "Hadolint on every Dockerfile"
 while IFS= read -r dockerfile; do

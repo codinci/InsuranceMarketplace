@@ -33,6 +33,10 @@ bash scripts/verify.sh                # the full gate, as CI runs it
 ./mvnw spotless:apply                 # format Java
 ```
 
+## Auth service (M1)
+
+auth-service runs on `http://localhost:8081` (set `AUTH_HOST_PORT` in `.env` to change it). Swagger UI: `http://localhost:8081/swagger-ui/index.html`. It needs `AUTH_JWT_PRIVATE_KEY_BASE64` in `.env`. Generate it as described in [docs/runbook.md](docs/runbook.md), section "Auth-service (M1)". Then run `scripts/smoke.sh` against the running stack.
+
 ## Status
 
 M0a (build, quality gates, CI, walking skeleton) is done. M0b (local infrastructure, event envelope, correlation IDs) is in progress. See the status tracker in [PLAN.md](PLAN.md) section 21.7.
