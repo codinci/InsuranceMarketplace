@@ -22,8 +22,8 @@
   <modules>
     <module>common-events</module>
     <module>common-starter</module>
-    <module>hello-service</module>
     <module>auth-service</module>
+    <module>api-gateway</module>
     <module>infra-tests</module>
   </modules>
 
@@ -42,6 +42,8 @@
     <!-- Not managed by Spring Boot 4.1.2 (checked against its BOM, PLAN 17 M1 step 1). -->
     <springdoc.version>3.2.0</springdoc.version>
     <bucket4j.version>8.10.1</bucket4j.version>
+    <!-- Spring Cloud 2025.1 officially supports Spring Boot 4.1.x (spring-cloud supported-versions). M2. -->
+    <spring-cloud.version>2025.1.5</spring-cloud.version>
 
     <!-- Line coverage floor per module (PLAN 16.1). Raised per package by ADR, never lowered. -->
     <coverage.line.minimum>0.70</coverage.line.minimum>
@@ -51,6 +53,18 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
       <dependency>
         <groupId>com.tngtech.archunit</groupId>
         <artifactId>archunit-junit5</artifactId>
