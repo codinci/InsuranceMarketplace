@@ -5,28 +5,21 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.regex.Pattern;
 import org.slf4j.MDC;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Gives every HTTP request a correlation id (PLAN 10, 15).
+ * Gives every servlet (MVC) request a correlation id (PLAN 10, 15). The rules live in {@link
+ * CorrelationIds}.
  *
- * <p>The id comes from the incoming {@code X-Correlation-Id} header when it is well formed,
- * otherwise a new UUID is generated. It is put in the logging MDC so every log line written during
- * the request carries it, and it is echoed on the response. Downstream calls and events reuse the
- * same id, which is how one customer action can be traced across services.
- *
- * <p>Incoming values are validated so a client cannot inject arbitrary text into the logs.
+ * <p>The id is put in the logging MDC so every log line written during the request carries it, and
+ * it is echoed on the response. Downstream calls and events reuse the same id. Only registered in
+ * servlet web applications (see {@link CommonWebAutoConfiguration}).
  */
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
-  public static final String HEADER = "X-Correlation-Id";
-  public static final String MDC_KEY = "correlationId";
-
-  private static final Pattern VALID_ID = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+  public static final String HEADER = CorrelationIds.HEADER;
+  public static final String MDC_KEY = CorrelationIds.MDC_KEY;
 
   @Override
   protected void doFilterInternal(
@@ -38,14 +31,14 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     try {
       chain.doFilter(request, response);
     } finally {
+      // The finally matters: the thread goes back to the pool, and a leftover id would show up in
+      // another request's logs.
       MDC.remove(MDC_KEY);
     }
   }
 
-  /** Returns the incoming id when it is valid, otherwise a new one. Package-visible for tests. */
+  /** Package-visible for tests. */
   static String resolve(String incoming) {
-    return Optional.ofNullable(incoming)
-        .filter(value -> VALID_ID.matcher(value).matches())
-        .orElseGet(() -> UUID.randomUUID().toString());
+    return CorrelationIds.resolve(incoming);
   }
 }

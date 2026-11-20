@@ -1,6 +1,8 @@
 package com.example.insurance.common.web;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication.Type;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
@@ -12,7 +14,9 @@ import org.springframework.core.Ordered;
  * META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports}, so Spring Boot
  * loads it automatically. Services do not need to scan this package.
  */
+// Servlet applications only. A reactive gateway gets its own correlation filter from api-gateway.
 @AutoConfiguration
+@ConditionalOnWebApplication(type = Type.SERVLET)
 public class CommonWebAutoConfiguration {
 
   @Bean

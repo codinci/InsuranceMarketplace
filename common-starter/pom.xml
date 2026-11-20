@@ -15,10 +15,12 @@
   <description>Cross-cutting code only: error format, correlation ID, logging, role constants. No domain code.</description>
 
   <dependencies>
-    <!-- Servlet filter and auto-configuration for the shared web pieces. -->
+    <!-- Only the servlet filter needs MVC. Optional, so reactive services (api-gateway) do not inherit servlet
+         classes. A servlet service that uses the filter declares the starter itself. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
