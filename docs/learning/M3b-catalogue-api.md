@@ -57,6 +57,40 @@
 2. Version 1 of a plan is published. The author imports version 1 again with a corrected limit, then imports it as version 2 and publishes. What happens at each step, and what state are both versions in at the end?
 3. Someone runs `UPDATE plans SET definition = '{}' WHERE status = 'PUBLISHED'` directly in psql. What stops it, and why is the service check alone not enough?
 
+## Corrected answers
+
+1. **Answered by the owner:** The gateway validates the JWT and routes. The security filter chain authenticates the JWT and discovers the user's role. The service scopes the plan to the tenant, and a Baobab plan is not in Acacia, so it returns 404.
+   **Corrected version:**
+   - **Gateway:** checks the token's signature, issuer and expiry against auth-service's JWKS, applies the per-IP rate limit, and routes `/api/v1/admin/plans/**` to policy-service. It does not look at roles or insurers.
+   - **policy-service filter chain:** validates the token again, independently (design decision 7: every service checks tokens itself and never trusts the gateway alone). It maps the `roles` claim to `ROLE_ADMIN`, and the rule `/api/v1/admin/** hasRole ADMIN` lets the request through.
+   - **Controller and service:** the controller builds a `StaffScope` from the token's `insurerId` (ACACIA's id). `PlanLifecycleService` loads the plan and keeps it only if `scope.canSee(plan.insurerId)`. The plan belongs to BAOBAB, so the result is empty and the service answers **404 `PLAN_NOT_FOUND`**, exactly as for an id that does not exist.
+   - **Why not 403:** a 403 would tell the caller "this plan exists, but it is not yours", which leaks that another insurer has a plan with that id. With 404, a plan of another insurer and a plan that does not exist look the same (ADR-010).
+
+   The owner's answer was right on the path and the result. It did not say why 404 is chosen over 403, and it missed that policy-service checks the token again rather than trusting the gateway.
+
+2. **Answered by the owner:** Version 1 cannot be published again; it has to be created as a new version. After version 2 is created, version 1 is suppressed.
+   **Corrected version:**
+
+   | Step | Request | Result | v1 | v2 |
+   |---|---|---|---|---|
+   | Start | | | PUBLISHED, on sale | none |
+   | Re-import v1 with the corrected limit | `POST .../plans/import` | **409 `PLAN_VERSION_IMMUTABLE`**: v1 is published, so its terms cannot change (D34). Nothing is stored | PUBLISHED, unchanged | none |
+   | Import the same document as v2 | `POST .../plans/import` | **201 `CREATED`**: a new DRAFT | PUBLISHED, still on sale | DRAFT, not visible to the public |
+   | Publish v2 | `POST /admin/plans/{v2}/publish` | **200**: in one transaction v1 is retired, then v2 is published (D33) | RETIRED | PUBLISHED, on sale |
+
+   At the end v1 is `RETIRED` and v2 is `PUBLISHED`. v1's terms never changed, so any policy sold on v1 keeps exactly what it bought. Customers only ever see one version of the plan on sale.
+
+   The owner's answer was right that a published version cannot change and the fix is a new version. Two corrections: the re-import is refused with 409 rather than "published again", and v1 is retired when v2 is **published**, not when v2 is created. Between import and publish, v1 stays on sale and v2 is only a draft.
+
+3. **Answered by the owner:** The database trigger stops it, because the service can be bypassed.
+   **Corrected version:** The `plans_immutable` trigger runs `plans_guard_immutable()` before every `UPDATE` or `DELETE` on `plans`. For a row whose status is not `DRAFT`, a change to `definition` (or the code, version, sale period or currency) raises `plan ... its terms are immutable`. The statement fails, and nothing changes in any row. The same trigger refuses deleting a published or retired plan and moving a status backwards. The service check is not enough because anything that talks to the database directly skips it: psql, a migration, a batch script, or a future code path with a bug. Sold terms are the rule that is most expensive to break, so the database enforces it too (ADR-010). One limit remains: a database superuser can disable the trigger. That is why each service should log in with its own user that has rights only on its own database (parking lot, from M1).
+
+   The owner's answer was correct. The corrected version adds what the trigger checks, what happens to the statement, and the remaining limit.
+
+## Summary of the self-check
+
+All three questions have corrected answers. Question 1 had the path and result right but not why 404 beats 403, nor that policy-service checks the token itself. Question 2 had the rule right but the timing wrong: v1 is retired when v2 is published, and re-importing v1 is refused with 409. Question 3 was correct.
+
 ## Official documentation
 
 - Spring Data JPA: https://docs.spring.io/spring-data/jpa/reference/
