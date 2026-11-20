@@ -33,9 +33,6 @@ field() { printf '%s' "$1" | grep -o "\"$2\":\"[^\"]*\"" | head -n1 | cut -d'"' 
 step "health through the gateway"
 call 200 "$BASE/actuator/health" > /dev/null && echo "up"
 
-step "/internal is never published, even with a valid token"
-call 404 "$BASE/internal/policies/1" -H 'Authorization: Bearer invalid' > /dev/null && echo "internal path not found"
-
 step "a protected route needs a token"
 call 401 "$BASE/api/v1/payments/x" > /dev/null && echo "protected route needs a token"
 
@@ -71,6 +68,9 @@ echo "tokens issued"
 
 step "me with the access token"
 call 200 "$BASE/api/v1/auth/me" -H "Authorization: Bearer $ACCESS" > /dev/null && echo "current user returned"
+
+step "/internal is never published, even with a valid token"
+call 404 "$BASE/internal/policies/1" -H "Authorization: Bearer $ACCESS" > /dev/null && echo "internal path not found"
 
 step "a route whose service is not built yet answers 503 (payment-service comes in M4)"
 call 503 "$BASE/api/v1/payments/x" -H "Authorization: Bearer $ACCESS" > /dev/null && echo "UPSTREAM_UNAVAILABLE"
