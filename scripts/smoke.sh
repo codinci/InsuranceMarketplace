@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# End-to-end smoke test of the running stack through the API gateway (PLAN 18). Covers the gateway (M2) and auth-service (M1).
+# End-to-end smoke test of the running stack through the API gateway (PLAN 18). Covers auth-service (M1), the gateway (M2)
+# and the catalogue in policy-service (M3b).
 # Later milestones add steps. Usage: scripts/smoke.sh [base-url]   (default: the gateway's host port from .env, or 8080)
 # Needs the seeded admin in .env (AUTH_SEED_PLATFORM_ADMIN_EMAIL and _PASSWORD). Exits non-zero on the first failure.
 set -euo pipefail
@@ -48,8 +49,9 @@ step "CORS: no origin is allowed until the frontend exists"
 call 403 "$BASE/api/v1/auth/me" -X OPTIONS -H 'Origin: http://browser.example' \
   -H 'Access-Control-Request-Method: GET' > /dev/null && echo "preflight refused"
 
-step "aggregated Swagger serves the auth-service spec"
+step "aggregated Swagger serves the auth-service and policy-service specs"
 call 200 "$BASE/v3/api-docs/auth" | grep -q '"title"' && echo "auth spec served through the gateway"
+call 200 "$BASE/v3/api-docs/policy" | grep -q '"policy-service"' && echo "policy spec served through the gateway"
 
 step "register a policyholder"
 EMAIL="smoke.$(date +%s)@example.com"
@@ -102,5 +104,44 @@ call 201 "$BASE/api/v1/admin/users" -H "$JSON" -H "Authorization: Bearer $ADMIN_
 
 step "JWKS publishes a key through the gateway"
 call 200 "$BASE/.well-known/jwks.json" | grep -q '"kty":"RSA"' && echo "key published"
+
+step "catalogue: the seeded fictional insurers are listed without a token"
+INSURERS=$(call 200 "$BASE/api/v1/insurers?size=100")
+printf '%s' "$INSURERS" | grep -q '"code":"ACACIA"' && printf '%s' "$INSURERS" | grep -q '"code":"BAOBAB"' \
+  && echo "ACACIA and BAOBAB listed" || { echo "FAILED: seeded insurers missing" >&2; exit 1; }
+# id_of BODY CODE: the id of the insurer with that code (records serialise id before code).
+id_of() { printf '%s' "$1" | grep -o "\"id\":\"[^\"]*\",\"code\":\"$2\"" | cut -d'"' -f4; }
+BAOBAB_ID=$(id_of "$INSURERS" BAOBAB)
+
+step "catalogue: an insurer's plans on sale, and a plan's terms"
+PLANS=$(call 200 "$BASE/api/v1/insurers/ACACIA/plans")
+printf '%s' "$PLANS" | grep -q '"totalElements":2' || { echo "FAILED: expected two ACACIA plans: $PLANS" >&2; exit 1; }
+SEED_PLAN=$(field "$PLANS" id)
+call 200 "$BASE/api/v1/plans/$SEED_PLAN" | grep -q '"modules"' && echo "terms shown"
+
+step "catalogue: the platform admin onboards an insurer from a JSON document"
+CODE="SMOKE-$(date +%s)"
+call 201 "$BASE/api/v1/admin/insurers" -H "$JSON" -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d "{\"code\":\"$CODE\",\"name\":\"Smoke Insurer (fictional)\"}" > /dev/null
+NEW_INSURER=$(id_of "$(call 200 "$BASE/api/v1/insurers?size=100")" "$CODE")
+DOC=$(sed "s/\"code\": \"ACACIA\"/\"code\": \"$CODE\"/" policy-service/src/main/resources/catalogue-seed/acacia/standard.v1.json)
+IMPORT_URL="$BASE/api/v1/admin/insurers/$NEW_INSURER/plans/import"
+call 422 "$IMPORT_URL?dryRun=true" -H "$JSON" -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"schemaVersion":1}' | grep -q '"PLAN_INVALID"' && echo "invalid document refused with PLAN_INVALID"
+call 200 "$IMPORT_URL?dryRun=true" -H "$JSON" -H "Authorization: Bearer $ADMIN_TOKEN" \
+  --data-binary "$DOC" | grep -q '"VALIDATED"' && echo "dry run passed"
+NEW_PLAN=$(field "$(call 201 "$IMPORT_URL" -H "$JSON" -H "Authorization: Bearer $ADMIN_TOKEN" --data-binary "$DOC")" id)
+call 404 "$BASE/api/v1/plans/$NEW_PLAN" > /dev/null && echo "draft hidden from the public"
+call 200 "$BASE/api/v1/admin/plans/$NEW_PLAN/publish" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" > /dev/null && echo "published"
+call 200 "$BASE/api/v1/insurers/$CODE/plans" | grep -q "\"id\":\"$NEW_PLAN\"" && echo "on sale"
+
+step "catalogue: an admin of another insurer cannot touch it"
+OTHER_EMAIL="smoke.baobab.$(date +%s)@example.com"
+call 201 "$BASE/api/v1/admin/users" -H "$JSON" -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d "{\"email\":\"$OTHER_EMAIL\",\"password\":\"a-long-enough-password\",\"firstName\":\"Smoke\",\"lastName\":\"Baobab\",\"role\":\"ADMIN\",\"insurerId\":\"$BAOBAB_ID\"}" > /dev/null
+OTHER_TOKEN=$(field "$(call 200 "$BASE/api/v1/auth/login" -H "$JSON" \
+  -d "{\"email\":\"$OTHER_EMAIL\",\"password\":\"a-long-enough-password\"}")" accessToken)
+call 404 "$BASE/api/v1/admin/plans/$NEW_PLAN/retire" -X POST -H "Authorization: Bearer $OTHER_TOKEN" \
+  | grep -q '"PLAN_NOT_FOUND"' && echo "another insurer's admin gets 404"
 
 printf '\nsmoke.sh: all steps passed\n'

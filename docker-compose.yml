@@ -1,6 +1,6 @@
 # Local infrastructure and services (PLAN 15, M0b).
 #   infra profile: Postgres, Kafka, SeaweedFS and their one-off init jobs (daily work).
-#   full profile:  infra plus the services (auth-service and the gateway from M2).
+#   full profile:  infra plus the services (auth-service, policy-service and the gateway).
 #   tools profile: optional Kafka UI.
 # Copy .env.example to .env and set the passwords before the first start.
 name: mini-insurance
@@ -175,6 +175,32 @@ services:
       start_period: 40s
     mem_limit: 384m
 
+  # Catalogue and, from M4, policies (PLAN 3). Not published: clients reach it through the gateway. It seeds the
+  # fictional catalogue on start (PLAN 5.4); seeding skips plans that already exist.
+  policy-service:
+    build:
+      context: .
+      dockerfile: policy-service/Dockerfile
+    profiles: [full]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JAVA_OPTS: "-Xmx256m"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/policy_db
+      SPRING_DATASOURCE_USERNAME: insurance
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # Access tokens are checked against auth-service's published keys, fetched on the first request.
+      POLICY_JWT_JWK_SET_URI: http://auth-service:8080/.well-known/jwks.json
+      CATALOGUE_SEED_ENABLED: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    mem_limit: 384m
+
   # The only published service: every client request enters here (PLAN 3, 12). Port is GATEWAY_HOST_PORT in .env.
   api-gateway:
     build:
@@ -185,6 +211,8 @@ services:
       redis:
         condition: service_healthy
       auth-service:
+        condition: service_healthy
+      policy-service:
         condition: service_healthy
     environment:
       JAVA_OPTS: "-Xmx256m"

@@ -244,6 +244,19 @@ class GatewayIT extends AbstractGatewayIT {
   }
 
   @Test
+  void theAggregatedSwaggerSpecOfThePolicyServiceIsServed() {
+    client
+        .get()
+        .uri("/v3/api-docs/policy")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(String.class)
+        .value(body ->
+            assertThat(body).contains("policy-service").contains("\"path\":\"/v3/api-docs\""));
+  }
+
+  @Test
   void corsPreflightIsRefusedWhenNoOriginIsConfigured() {
     client
         .options()

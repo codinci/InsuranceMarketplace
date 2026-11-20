@@ -12,9 +12,9 @@ step "Maven: format, style, static analysis, architecture, tests, coverage"
 ./mvnw -B clean verify
 
 step "OpenAPI diff"
-# Enforced inside the Maven build: auth-service's OpenApiSnapshotIT compares the generated spec with
-# docs/openapi/auth-service.json. Nothing more to run here until another service publishes a spec.
-echo "covered by OpenApiSnapshotIT in the Maven step above (auth-service)"
+# Enforced inside the Maven build: each service's OpenApiSnapshotIT compares its generated spec with
+# docs/openapi/<service>.json.
+echo "covered by OpenApiSnapshotIT in the Maven step above (auth-service, policy-service)"
 
 step "Hadolint on every Dockerfile"
 while IFS= read -r dockerfile; do
