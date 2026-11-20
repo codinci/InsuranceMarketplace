@@ -47,6 +47,34 @@ public final class CatalogueFixtures {
     return MAPPER.treeToValue(validPlanJson(file), PlanDocument.class).plan();
   }
 
+  /**
+   * A plan by golden-case reference: {@code catalogue-seed/...} is a production seed file, a path
+   * with a slash is under the test {@code catalogue/} folder, and a bare name is a valid fixture.
+   */
+  public static PlanDefinition planAt(String reference) {
+    String text;
+    if (reference.startsWith("catalogue-seed/")) {
+      text = classpath("/" + reference);
+    } else if (reference.contains("/")) {
+      text = resource(reference);
+    } else {
+      text = resource("valid/" + reference);
+    }
+    return MAPPER.readValue(text, PlanDocument.class).plan();
+  }
+
+  /** A classpath resource by absolute path, from main or test resources. */
+  public static String classpath(String absolutePath) {
+    try (InputStream in = CatalogueFixtures.class.getResourceAsStream(absolutePath)) {
+      if (in == null) {
+        throw new IllegalArgumentException("No classpath resource " + absolutePath);
+      }
+      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
   public static RatingStrategyRegistry registry() {
     return new RatingStrategyRegistry(
         List.of(

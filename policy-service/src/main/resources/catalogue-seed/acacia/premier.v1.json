@@ -1,0 +1,430 @@
+{
+  "schemaVersion": 1,
+  "insurer": {
+    "code": "ACACIA",
+    "name": "Acacia Assurance (fictional)"
+  },
+  "product": {
+    "code": "MEDICAL",
+    "line": "HEALTH",
+    "name": "Acacia Medical"
+  },
+  "plan": {
+    "code": "PREMIER",
+    "name": "Acacia Premier",
+    "version": 1,
+    "currency": "KES",
+    "sale": {
+      "from": "2026-01-01",
+      "to": null
+    },
+    "ageBasis": "NEXT_BIRTHDAY",
+    "eligibility": {
+      "coverTypes": [
+        "INDIVIDUAL",
+        "FAMILY"
+      ],
+      "principalAge": {
+        "min": 18,
+        "max": 70
+      },
+      "childAge": {
+        "min": 0,
+        "max": 21
+      },
+      "maxChildren": 5
+    },
+    "modules": [
+      {
+        "code": "INPATIENT",
+        "mandatory": true,
+        "options": [
+          {
+            "code": "IP-500K",
+            "benefits": {
+              "code": "INPATIENT",
+              "kind": "REIMBURSEMENT",
+              "limit": {
+                "amount": 500000,
+                "period": "PER_YEAR",
+                "scope": "PER_MEMBER"
+              },
+              "children": [
+                {
+                  "code": "GENERAL_INPATIENT",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "DISCHARGE_SUMMARY"
+                  ]
+                },
+                {
+                  "code": "CHRONIC",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "MEDICAL_REPORT"
+                  ],
+                  "limit": {
+                    "amount": 200000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER"
+                  },
+                  "children": [
+                    {
+                      "code": "MENTAL_HEALTH",
+                      "limit": {
+                        "amount": 60000,
+                        "period": "PER_YEAR",
+                        "scope": "PER_MEMBER"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "code": "DENTAL_INPATIENT",
+                  "requiredDocuments": [
+                    "INVOICE"
+                  ],
+                  "limit": {
+                    "amount": 30000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER"
+                  }
+                },
+                {
+                  "code": "ACCIDENT_EMERGENCY",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "POLICE_ABSTRACT"
+                  ],
+                  "limit": {
+                    "amount": 50000,
+                    "period": "PER_CLAIM",
+                    "scope": "PER_MEMBER"
+                  }
+                }
+              ]
+            },
+            "rating": {
+              "model": "AGE_BAND_PER_MEMBER",
+              "ageBands": [
+                {
+                  "from": 0,
+                  "to": 17,
+                  "annual": 9000
+                },
+                {
+                  "from": 18,
+                  "to": 35,
+                  "annual": 15000
+                },
+                {
+                  "from": 36,
+                  "to": 50,
+                  "annual": 19500
+                },
+                {
+                  "from": 51,
+                  "to": 60,
+                  "annual": 27000
+                },
+                {
+                  "from": 61,
+                  "to": 70,
+                  "annual": 36000
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "code": "OUTPATIENT",
+        "mandatory": false,
+        "options": [
+          {
+            "code": "OP-50K",
+            "benefits": {
+              "code": "OUTPATIENT",
+              "limit": {
+                "amount": 50000,
+                "period": "PER_YEAR",
+                "scope": "PER_MEMBER"
+              },
+              "copay": {
+                "type": "PERCENT",
+                "value": 0.1
+              },
+              "children": [
+                {
+                  "code": "CONSULTATION",
+                  "requiredDocuments": [
+                    "RECEIPT"
+                  ],
+                  "limit": {
+                    "amount": 50000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER",
+                    "maxPerVisit": 3000
+                  }
+                },
+                {
+                  "code": "OPTICAL",
+                  "requiredDocuments": [
+                    "RECEIPT",
+                    "PRESCRIPTION"
+                  ],
+                  "limit": {
+                    "amount": 10000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER",
+                    "maxCount": 1
+                  }
+                }
+              ]
+            },
+            "rating": {
+              "model": "AGE_BAND_PER_MEMBER",
+              "ageBands": [
+                {
+                  "from": 0,
+                  "to": 17,
+                  "annual": 6500
+                },
+                {
+                  "from": 18,
+                  "to": 40,
+                  "annual": 10000
+                },
+                {
+                  "from": 41,
+                  "to": 70,
+                  "annual": 13500
+                }
+              ]
+            }
+          },
+          {
+            "code": "OP-100K",
+            "benefits": {
+              "code": "OUTPATIENT",
+              "limit": {
+                "amount": 100000,
+                "period": "PER_YEAR",
+                "scope": "PER_MEMBER"
+              },
+              "copay": {
+                "type": "PERCENT",
+                "value": 0.1
+              },
+              "children": [
+                {
+                  "code": "CONSULTATION",
+                  "requiredDocuments": [
+                    "RECEIPT"
+                  ],
+                  "limit": {
+                    "amount": 100000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER",
+                    "maxPerVisit": 5000
+                  }
+                },
+                {
+                  "code": "OPTICAL",
+                  "requiredDocuments": [
+                    "RECEIPT",
+                    "PRESCRIPTION"
+                  ],
+                  "limit": {
+                    "amount": 10000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER",
+                    "maxCount": 1
+                  }
+                }
+              ]
+            },
+            "rating": {
+              "model": "AGE_BAND_PER_MEMBER",
+              "ageBands": [
+                {
+                  "from": 0,
+                  "to": 17,
+                  "annual": 10500
+                },
+                {
+                  "from": 18,
+                  "to": 40,
+                  "annual": 15500
+                },
+                {
+                  "from": 41,
+                  "to": 70,
+                  "annual": 20500
+                }
+              ]
+            }
+          },
+          {
+            "code": "OP-150K",
+            "benefits": {
+              "code": "OUTPATIENT",
+              "limit": {
+                "amount": 150000,
+                "period": "PER_YEAR",
+                "scope": "PER_MEMBER"
+              },
+              "copay": {
+                "type": "PERCENT",
+                "value": 0.1
+              },
+              "children": [
+                {
+                  "code": "CONSULTATION",
+                  "requiredDocuments": [
+                    "RECEIPT"
+                  ],
+                  "limit": {
+                    "amount": 150000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER",
+                    "maxPerVisit": 7500
+                  }
+                },
+                {
+                  "code": "OPTICAL",
+                  "requiredDocuments": [
+                    "RECEIPT",
+                    "PRESCRIPTION"
+                  ],
+                  "limit": {
+                    "amount": 10000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER",
+                    "maxCount": 1
+                  }
+                }
+              ]
+            },
+            "rating": {
+              "model": "AGE_BAND_PER_MEMBER",
+              "ageBands": [
+                {
+                  "from": 0,
+                  "to": 17,
+                  "annual": 14000
+                },
+                {
+                  "from": 18,
+                  "to": 40,
+                  "annual": 21000
+                },
+                {
+                  "from": 41,
+                  "to": 70,
+                  "annual": 27500
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "code": "MATERNITY",
+        "mandatory": false,
+        "options": [
+          {
+            "code": "MAT-100K",
+            "benefits": {
+              "code": "MATERNITY",
+              "requiredDocuments": [
+                "INVOICE",
+                "MEDICAL_REPORT"
+              ],
+              "limit": {
+                "amount": 100000,
+                "period": "PER_YEAR",
+                "scope": "PER_MEMBER"
+              }
+            },
+            "rating": {
+              "model": "FLAT_PER_ELIGIBLE_MEMBER",
+              "annual": 14000,
+              "eligible": {
+                "relationships": [
+                  "PRINCIPAL",
+                  "SPOUSE"
+                ],
+                "sex": "FEMALE"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "waitingRules": [
+      {
+        "code": "GENERAL_ILLNESS",
+        "days": 30,
+        "when": {
+          "cause": "ILLNESS"
+        }
+      },
+      {
+        "code": "ILLNESS_SURGERY",
+        "days": 90,
+        "when": {
+          "cause": "ILLNESS",
+          "surgical": true
+        }
+      },
+      {
+        "code": "PRE_EXISTING",
+        "days": 365,
+        "when": {
+          "conditionTags": [
+            "PRE_EXISTING",
+            "CHRONIC"
+          ]
+        }
+      },
+      {
+        "code": "MATERNITY",
+        "days": 270,
+        "when": {
+          "benefits": [
+            "MATERNITY"
+          ]
+        }
+      }
+    ],
+    "exclusions": [
+      "Cosmetic treatment",
+      "Experimental treatment"
+    ],
+    "claimRules": {
+      "filingDeadlineDays": 90
+    },
+    "cancellation": {
+      "noticeDays": 30,
+      "refund": {
+        "model": "PRO_RATA",
+        "noRefundAfterMonths": 6,
+        "noRefundIfClaims": true
+      }
+    },
+    "adjustments": [],
+    "levies": [
+      {
+        "code": "LEVY_A",
+        "type": "PERCENT",
+        "value": 0.0025
+      },
+      {
+        "code": "STAMP_DUTY",
+        "type": "FIXED",
+        "value": 50
+      }
+    ]
+  }
+}

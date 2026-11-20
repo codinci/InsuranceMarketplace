@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "insurer": {
+    "code": "MVULE",
+    "name": "Mvule Health (fictional)"
+  },
+  "product": {
+    "code": "MEDICAL",
+    "line": "HEALTH",
+    "name": "Mvule Medical"
+  },
+  "plan": {
+    "code": "CARE",
+    "name": "Mvule Care",
+    "version": 1,
+    "currency": "KES",
+    "sale": {
+      "from": "2026-01-01",
+      "to": null
+    },
+    "ageBasis": "AT_START",
+    "eligibility": {
+      "coverTypes": [
+        "INDIVIDUAL",
+        "FAMILY"
+      ],
+      "principalAge": {
+        "min": 18,
+        "max": 65
+      },
+      "childAge": {
+        "min": 0,
+        "max": 20
+      },
+      "maxChildren": 3
+    },
+    "modules": [
+      {
+        "code": "INPATIENT",
+        "mandatory": true,
+        "options": [
+          {
+            "code": "IP-120K",
+            "benefits": {
+              "code": "INPATIENT",
+              "limit": {
+                "amount": 120000,
+                "period": "PER_YEAR",
+                "scope": "PER_MEMBER"
+              },
+              "children": [
+                {
+                  "code": "GENERAL_INPATIENT",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "DISCHARGE_SUMMARY"
+                  ]
+                },
+                {
+                  "code": "SURGERY",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "MEDICAL_REPORT"
+                  ],
+                  "limit": {
+                    "amount": 60000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER"
+                  },
+                  "copay": {
+                    "type": "PERCENT",
+                    "value": 0.05
+                  }
+                }
+              ]
+            },
+            "rating": {
+              "model": "AGE_BAND_PER_MEMBER",
+              "ageBands": [
+                {
+                  "from": 0,
+                  "to": 20,
+                  "annual": 4000
+                },
+                {
+                  "from": 21,
+                  "to": 45,
+                  "annual": 7000
+                },
+                {
+                  "from": 46,
+                  "to": 65,
+                  "annual": 11000
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "code": "OUTPATIENT",
+        "mandatory": false,
+        "options": [
+          {
+            "code": "OP-20K",
+            "benefits": {
+              "code": "OUTPATIENT",
+              "limit": {
+                "amount": 20000,
+                "period": "PER_YEAR",
+                "scope": "SHARED"
+              },
+              "copay": {
+                "type": "FIXED_PER_VISIT",
+                "value": 200
+              },
+              "children": [
+                {
+                  "code": "CONSULTATION",
+                  "requiredDocuments": [
+                    "RECEIPT"
+                  ]
+                }
+              ]
+            },
+            "rating": {
+              "model": "FLAT_PER_ELIGIBLE_MEMBER",
+              "annual": 4500,
+              "eligible": {
+                "relationships": [
+                  "PRINCIPAL",
+                  "SPOUSE",
+                  "CHILD"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "waitingRules": [
+      {
+        "code": "GENERAL_ILLNESS",
+        "days": 30,
+        "when": {
+          "cause": "ILLNESS"
+        }
+      },
+      {
+        "code": "SURGERY",
+        "days": 90,
+        "when": {
+          "benefits": [
+            "SURGERY"
+          ]
+        }
+      }
+    ],
+    "exclusions": [
+      "Cosmetic treatment"
+    ],
+    "claimRules": {
+      "filingDeadlineDays": 120
+    },
+    "cancellation": {
+      "noticeDays": 30,
+      "refund": {
+        "model": "PRO_RATA",
+        "noRefundIfClaims": true
+      }
+    },
+    "adjustments": [],
+    "levies": [
+      {
+        "code": "LEVY_A",
+        "type": "PERCENT",
+        "value": 0.0025
+      }
+    ]
+  }
+}

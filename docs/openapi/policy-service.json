@@ -1,0 +1,1261 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "policy-service",
+    "description" : "Catalogue: insurers, plans, import and publishing. Policies from M4.",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "tags" : [ {
+    "name" : "Catalogue",
+    "description" : "Browse insurers and plans. Public: no token needed (PLAN 4)."
+  }, {
+    "name" : "Catalogue admin",
+    "description" : "Insurers and plan import. Insurer admins act only on their own insurer."
+  } ],
+  "paths" : {
+    "/api/v1/admin/plans/{planId}/retire" : {
+      "post" : {
+        "tags" : [ "Catalogue admin" ],
+        "summary" : "Retire a published plan",
+        "description" : "Takes it off sale. Existing policies keep their own snapshot.",
+        "operationId" : "retire",
+        "parameters" : [ {
+          "name" : "planId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Retired",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not an admin (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such plan, or not yours (PLAN_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Not published (PLAN_NOT_PUBLISHED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/admin/plans/{planId}/publish" : {
+      "post" : {
+        "tags" : [ "Catalogue admin" ],
+        "summary" : "Publish a draft",
+        "description" : "Makes the version immutable and puts it on sale. An older published version of the same plan is retired in the same step (D33).",
+        "operationId" : "publish",
+        "parameters" : [ {
+          "name" : "planId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Published",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not an admin (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such plan, or not yours (PLAN_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Not a draft, or a newer version is published (PLAN_NOT_DRAFT, NEWER_VERSION_PUBLISHED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminPlanResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/admin/insurers" : {
+      "post" : {
+        "tags" : [ "Catalogue admin" ],
+        "summary" : "Create an insurer",
+        "description" : "Platform admin only (PLAN 4).",
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateInsurerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Insurer created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InsurerResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid code or name (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InsurerResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InsurerResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not an admin, or an insurer admin (FORBIDDEN, PLATFORM_ADMIN_REQUIRED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InsurerResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Code already used (INSURER_CODE_TAKEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InsurerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/admin/insurers/{insurerId}/plans/import" : {
+      "post" : {
+        "tags" : [ "Catalogue admin" ],
+        "summary" : "Import a plan document",
+        "description" : "Validates the document against the schema and the semantic rules (docs/catalogue-schema.md). With dryRun=true nothing is stored. Otherwise a new version is stored as DRAFT, and an existing DRAFT of the same version is replaced (D34). Maximum 256 KB.",
+        "operationId" : "importPlan",
+        "parameters" : [ {
+          "name" : "insurerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "dryRun",
+          "in" : "query",
+          "description" : "Validate only; store nothing.",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "requestBody" : {
+          "description" : "A plan document, schema version 1.",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Valid (dry run) or a draft replaced",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          },
+          "201" : {
+            "description" : "A new draft version stored",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not an admin (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such insurer, or not yours (INSURER_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "That version is published or retired (PLAN_VERSION_IMMUTABLE)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          },
+          "413" : {
+            "description" : "Document too large (PLAN_TOO_LARGE)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "Invalid document, every problem in errors (PLAN_INVALID), or the document names another insurer (INSURER_MISMATCH)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/plans/{planId}" : {
+      "get" : {
+        "tags" : [ "Catalogue" ],
+        "summary" : "Show a plan's terms",
+        "description" : "Modules, options, benefits, limits, waiting rules, exclusions and cancellation of a published plan. Prices come from quotes.",
+        "operationId" : "plan",
+        "parameters" : [ {
+          "name" : "planId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The plan's terms",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanDetailResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Not a valid id (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanDetailResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such published plan (PLAN_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanDetailResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/insurers" : {
+      "get" : {
+        "tags" : [ "Catalogue" ],
+        "summary" : "List insurers",
+        "description" : "Active insurers, by name.",
+        "operationId" : "insurers",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of insurers",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseInsurerResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad paging (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseInsurerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/insurers/{code}/plans" : {
+      "get" : {
+        "tags" : [ "Catalogue" ],
+        "summary" : "List an insurer's plans on sale",
+        "description" : "Published plans whose sale period includes today, by name.",
+        "operationId" : "plans",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "description" : "Insurer code",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          },
+          "example" : "ACACIA"
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of plans",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePlanSummaryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad paging (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePlanSummaryResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such insurer (INSURER_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePlanSummaryResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/admin/plans" : {
+      "get" : {
+        "tags" : [ "Catalogue admin" ],
+        "summary" : "List plan versions",
+        "description" : "Newest first. An insurer admin sees only their own insurer; a platform admin may filter by insurerId.",
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "description" : "DRAFT, PUBLISHED or RETIRED",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "DRAFT|PUBLISHED|RETIRED"
+          }
+        }, {
+          "name" : "insurerId",
+          "in" : "query",
+          "description" : "Platform admin only: one insurer",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of plan versions",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseAdminPlanResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad paging or filter (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseAdminPlanResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseAdminPlanResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not an admin (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseAdminPlanResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "The insurerId filter names an insurer you cannot see (INSURER_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseAdminPlanResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "AdminPlanResponse" : {
+        "type" : "object",
+        "description" : "A plan version as staff see it.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Plan version id."
+          },
+          "insurerId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Owning insurer."
+          },
+          "productId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Owning product."
+          },
+          "code" : {
+            "type" : "string",
+            "example" : "STANDARD"
+          },
+          "name" : {
+            "type" : "string",
+            "example" : "Acacia Standard"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Plan version number.",
+            "example" : 1
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "DRAFT, PUBLISHED or RETIRED.",
+            "example" : "DRAFT"
+          },
+          "saleFrom" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "2026-01-01"
+          },
+          "saleTo" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "Open-ended when null."
+          },
+          "currency" : {
+            "type" : "string",
+            "example" : "KES"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "retiredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "CreateInsurerRequest" : {
+        "type" : "object",
+        "description" : "A new insurer on the marketplace.",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "Upper-case code, unique on the platform. Plan documents must use it.",
+            "example" : "MVULE",
+            "minLength" : 1,
+            "pattern" : "^[A-Z0-9][A-Z0-9_-]{0,39}$"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Display name.",
+            "example" : "Mvule Health (fictional)",
+            "maxLength" : 120,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "code", "name" ]
+      },
+      "InsurerResponse" : {
+        "type" : "object",
+        "description" : "An insurer.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Insurer id. Staff tokens carry it as insurerId."
+          },
+          "code" : {
+            "type" : "string",
+            "example" : "ACACIA"
+          },
+          "name" : {
+            "type" : "string",
+            "example" : "Acacia Assurance (fictional)"
+          }
+        }
+      },
+      "ImportResponse" : {
+        "type" : "object",
+        "description" : "The result of a plan import.",
+        "properties" : {
+          "outcome" : {
+            "type" : "string",
+            "description" : "VALIDATED for a dry run, CREATED for a new draft, REPLACED when a draft was replaced.",
+            "example" : "CREATED"
+          },
+          "plan" : {
+            "$ref" : "#/components/schemas/AdminPlanResponse",
+            "description" : "The stored plan version; null for a dry run."
+          }
+        }
+      },
+      "AgeRangeView" : {
+        "type" : "object",
+        "description" : "An inclusive age range.",
+        "properties" : {
+          "min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "max" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "BenefitView" : {
+        "type" : "object",
+        "description" : "A benefit node (docs/catalogue-schema.md).",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "example" : "CONSULTATION"
+          },
+          "kind" : {
+            "type" : "string",
+            "example" : "REIMBURSEMENT"
+          },
+          "limit" : {
+            "$ref" : "#/components/schemas/LimitView",
+            "description" : "Null when only the parent limits it."
+          },
+          "copay" : {
+            "$ref" : "#/components/schemas/CopayView"
+          },
+          "requiredDocuments" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "preAuthRequired" : {
+            "type" : "boolean"
+          },
+          "children" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BenefitView"
+            }
+          }
+        }
+      },
+      "CancellationView" : {
+        "type" : "object",
+        "description" : "The cancellation rule.",
+        "properties" : {
+          "noticeDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "refundModel" : {
+            "type" : "string",
+            "example" : "PRO_RATA"
+          },
+          "noRefundAfterMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "noRefundIfClaims" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ChildAgeView" : {
+        "type" : "object",
+        "description" : "Child ages, with an optional higher limit for students.",
+        "properties" : {
+          "min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "max" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxIfStudent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "studentEvidenceRequired" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "CopayView" : {
+        "type" : "object",
+        "description" : "A co-pay. A PERCENT value is a fraction: 0.1 is 10%.",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "example" : "PERCENT"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        }
+      },
+      "EligibilityView" : {
+        "type" : "object",
+        "description" : "Who the plan accepts. Ages are in the plan's age basis.",
+        "properties" : {
+          "coverTypes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "principalAge" : {
+            "$ref" : "#/components/schemas/AgeRangeView"
+          },
+          "spouseAge" : {
+            "$ref" : "#/components/schemas/AgeRangeView",
+            "description" : "Same as principalAge when the plan sets none."
+          },
+          "childAge" : {
+            "$ref" : "#/components/schemas/ChildAgeView",
+            "description" : "Null when the plan has no children."
+          },
+          "maxChildren" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "LimitView" : {
+        "type" : "object",
+        "description" : "A limit. Amounts in the plan currency.",
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "period" : {
+            "type" : "string",
+            "example" : "PER_YEAR"
+          },
+          "scope" : {
+            "type" : "string",
+            "example" : "PER_MEMBER"
+          },
+          "maxPerVisit" : {
+            "type" : "number"
+          },
+          "maxCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ModuleView" : {
+        "type" : "object",
+        "description" : "A module and its options.",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "mandatory" : {
+            "type" : "boolean"
+          },
+          "options" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OptionView"
+            }
+          }
+        }
+      },
+      "OptionView" : {
+        "type" : "object",
+        "description" : "An option of a module and its benefit tree.",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "example" : "OP-40K"
+          },
+          "benefits" : {
+            "$ref" : "#/components/schemas/BenefitView"
+          }
+        }
+      },
+      "PlanDetailResponse" : {
+        "type" : "object",
+        "description" : "The terms of a published plan.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "insurerCode" : {
+            "type" : "string",
+            "example" : "ACACIA"
+          },
+          "insurerName" : {
+            "type" : "string",
+            "example" : "Acacia Assurance (fictional)"
+          },
+          "productCode" : {
+            "type" : "string",
+            "example" : "MEDICAL"
+          },
+          "code" : {
+            "type" : "string",
+            "example" : "STANDARD"
+          },
+          "name" : {
+            "type" : "string",
+            "example" : "Acacia Standard"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32",
+            "example" : 1
+          },
+          "currency" : {
+            "type" : "string",
+            "example" : "KES"
+          },
+          "saleFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "saleTo" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "ageBasis" : {
+            "type" : "string",
+            "description" : "AT_START or NEXT_BIRTHDAY",
+            "example" : "NEXT_BIRTHDAY"
+          },
+          "eligibility" : {
+            "$ref" : "#/components/schemas/EligibilityView"
+          },
+          "modules" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ModuleView"
+            }
+          },
+          "waitingRules" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WaitingRuleView"
+            }
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "filingDeadlineDays" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Days after an incident within which a claim must be filed."
+          },
+          "cancellation" : {
+            "$ref" : "#/components/schemas/CancellationView"
+          }
+        }
+      },
+      "WaitingRuleView" : {
+        "type" : "object",
+        "description" : "A waiting period and when it applies (docs/catalogue-schema.md, D31).",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "precedence" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cause" : {
+            "type" : "string"
+          },
+          "surgical" : {
+            "type" : "boolean"
+          },
+          "conditionTags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "benefits" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "PageResponseInsurerResponse" : {
+        "type" : "object",
+        "description" : "One page of results.",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "description" : "The items on this page.",
+            "items" : {
+              "$ref" : "#/components/schemas/InsurerResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page number, starting at 0.",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Requested page size.",
+            "example" : 20
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Items across all pages.",
+            "example" : 42
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of pages.",
+            "example" : 3
+          }
+        }
+      },
+      "ModuleSummary" : {
+        "type" : "object",
+        "description" : "A module and its option codes.",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "example" : "OUTPATIENT"
+          },
+          "mandatory" : {
+            "type" : "boolean",
+            "description" : "Always included when true."
+          },
+          "options" : {
+            "type" : "array",
+            "example" : [ "OP-40K", "OP-80K" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "PageResponsePlanSummaryResponse" : {
+        "type" : "object",
+        "description" : "One page of results.",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "description" : "The items on this page.",
+            "items" : {
+              "$ref" : "#/components/schemas/PlanSummaryResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page number, starting at 0.",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Requested page size.",
+            "example" : 20
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Items across all pages.",
+            "example" : 42
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of pages.",
+            "example" : 3
+          }
+        }
+      },
+      "PlanSummaryResponse" : {
+        "type" : "object",
+        "description" : "A plan on sale, as listed for an insurer.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Plan version id; use it for details and, from M4, quotes."
+          },
+          "insurerCode" : {
+            "type" : "string",
+            "example" : "ACACIA"
+          },
+          "productCode" : {
+            "type" : "string",
+            "example" : "MEDICAL"
+          },
+          "productName" : {
+            "type" : "string",
+            "example" : "Acacia Medical"
+          },
+          "code" : {
+            "type" : "string",
+            "example" : "STANDARD"
+          },
+          "name" : {
+            "type" : "string",
+            "example" : "Acacia Standard"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32",
+            "example" : 1
+          },
+          "currency" : {
+            "type" : "string",
+            "example" : "KES"
+          },
+          "saleFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "saleTo" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "Open-ended when null."
+          },
+          "modules" : {
+            "type" : "array",
+            "description" : "Modules and the codes of their options.",
+            "items" : {
+              "$ref" : "#/components/schemas/ModuleSummary"
+            }
+          }
+        }
+      },
+      "PageResponseAdminPlanResponse" : {
+        "type" : "object",
+        "description" : "One page of results.",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "description" : "The items on this page.",
+            "items" : {
+              "$ref" : "#/components/schemas/AdminPlanResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page number, starting at 0.",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Requested page size.",
+            "example" : 20
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Items across all pages.",
+            "example" : 42
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of pages.",
+            "example" : 3
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "bearerAuth" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT"
+      }
+    }
+  }
+}

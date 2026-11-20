@@ -1,0 +1,275 @@
+[
+  {
+    "name": "Seed Acacia STANDARD, family of three, inpatient and OP-40K",
+    "plan": "catalogue-seed/acacia/standard.v1.json",
+    "startDate": "2027-01-01",
+    "members": [
+      {
+        "relationship": "PRINCIPAL",
+        "sex": "MALE",
+        "dateOfBirth": "1990-06-15"
+      },
+      {
+        "relationship": "SPOUSE",
+        "sex": "FEMALE",
+        "dateOfBirth": "1992-01-01"
+      },
+      {
+        "relationship": "CHILD",
+        "sex": "FEMALE",
+        "dateOfBirth": "2015-03-10"
+      }
+    ],
+    "selection": {
+      "INPATIENT": "IP-200K",
+      "OUTPATIENT": "OP-40K"
+    },
+    "expected": {
+      "modules": {
+        "INPATIENT": "29000.00",
+        "OUTPATIENT": "21000.00"
+      },
+      "subtotal": "50000.00",
+      "adjustments": {},
+      "adjustedSubtotal": "50000.00",
+      "levies": {
+        "LEVY_A": "125.00",
+        "STAMP_DUTY": "50.00"
+      },
+      "annualPremium": "50175.00"
+    }
+  },
+  {
+    "name": "Seed Acacia PREMIER, family of three, inpatient, OP-100K and maternity (spouse eligible)",
+    "plan": "catalogue-seed/acacia/premier.v1.json",
+    "startDate": "2027-01-01",
+    "members": [
+      {
+        "relationship": "PRINCIPAL",
+        "sex": "MALE",
+        "dateOfBirth": "1990-06-15"
+      },
+      {
+        "relationship": "SPOUSE",
+        "sex": "FEMALE",
+        "dateOfBirth": "1992-01-01"
+      },
+      {
+        "relationship": "CHILD",
+        "sex": "FEMALE",
+        "dateOfBirth": "2015-03-10"
+      }
+    ],
+    "selection": {
+      "INPATIENT": "IP-500K",
+      "OUTPATIENT": "OP-100K",
+      "MATERNITY": "MAT-100K"
+    },
+    "expected": {
+      "modules": {
+        "INPATIENT": "43500.00",
+        "OUTPATIENT": "41500.00",
+        "MATERNITY": "14000.00"
+      },
+      "subtotal": "99000.00",
+      "adjustments": {},
+      "adjustedSubtotal": "99000.00",
+      "levies": {
+        "LEVY_A": "247.50",
+        "STAMP_DUTY": "50.00"
+      },
+      "annualPremium": "99297.50"
+    }
+  },
+  {
+    "name": "Seed Acacia PREMIER, individual aged 67 next birthday, inpatient and OP-150K",
+    "plan": "catalogue-seed/acacia/premier.v1.json",
+    "startDate": "2027-01-01",
+    "members": [
+      {
+        "relationship": "PRINCIPAL",
+        "sex": "FEMALE",
+        "dateOfBirth": "1960-02-02"
+      }
+    ],
+    "selection": {
+      "INPATIENT": "IP-500K",
+      "OUTPATIENT": "OP-150K"
+    },
+    "expected": {
+      "modules": {
+        "INPATIENT": "36000.00",
+        "OUTPATIENT": "27500.00"
+      },
+      "subtotal": "63500.00",
+      "adjustments": {},
+      "adjustedSubtotal": "63500.00",
+      "levies": {
+        "LEVY_A": "158.75",
+        "STAMP_DUTY": "50.00"
+      },
+      "annualPremium": "63708.75"
+    }
+  },
+  {
+    "name": "Seed Baobab FAMILY, family of three under 45, with the online discount",
+    "plan": "catalogue-seed/baobab/family.v1.json",
+    "startDate": "2027-03-01",
+    "members": [
+      {
+        "relationship": "PRINCIPAL",
+        "sex": "MALE",
+        "dateOfBirth": "1988-04-04"
+      },
+      {
+        "relationship": "SPOUSE",
+        "sex": "FEMALE",
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "relationship": "CHILD",
+        "sex": "MALE",
+        "dateOfBirth": "2019-05-05"
+      }
+    ],
+    "selection": {
+      "INPATIENT": "IP-150K",
+      "OUTPATIENT": "OP-35K"
+    },
+    "expected": {
+      "modules": {
+        "INPATIENT": "11000.00",
+        "OUTPATIENT": "19000.00"
+      },
+      "subtotal": "30000.00",
+      "adjustments": {
+        "ONLINE_DISCOUNT": "-1500.00"
+      },
+      "adjustedSubtotal": "28500.00",
+      "levies": {
+        "LEVY_A": "71.25",
+        "STAMP_DUTY": "50.00"
+      },
+      "annualPremium": "28621.25"
+    }
+  },
+  {
+    "name": "Seed Baobab LITE, individual",
+    "plan": "catalogue-seed/baobab/lite.v1.json",
+    "startDate": "2027-03-01",
+    "members": [
+      {
+        "relationship": "PRINCIPAL",
+        "sex": "MALE",
+        "dateOfBirth": "1985-05-05"
+      }
+    ],
+    "selection": {
+      "INPATIENT": "IP-80K"
+    },
+    "expected": {
+      "modules": {
+        "INPATIENT": "3600.00"
+      },
+      "subtotal": "3600.00",
+      "adjustments": {},
+      "adjustedSubtotal": "3600.00",
+      "levies": {
+        "LEVY_A": "9.00",
+        "STAMP_DUTY": "50.00"
+      },
+      "annualPremium": "3659.00"
+    }
+  },
+  {
+    "name": "Seed Baobab LITE, family of three: the largest tier exactly",
+    "plan": "catalogue-seed/baobab/lite.v1.json",
+    "startDate": "2027-03-01",
+    "members": [
+      {
+        "relationship": "PRINCIPAL",
+        "sex": "MALE",
+        "dateOfBirth": "1985-05-05"
+      },
+      {
+        "relationship": "SPOUSE",
+        "sex": "FEMALE",
+        "dateOfBirth": "1987-06-06"
+      },
+      {
+        "relationship": "CHILD",
+        "sex": "MALE",
+        "dateOfBirth": "2020-07-07"
+      }
+    ],
+    "selection": {
+      "INPATIENT": "IP-80K"
+    },
+    "expected": {
+      "modules": {
+        "INPATIENT": "7600.00"
+      },
+      "subtotal": "7600.00",
+      "adjustments": {},
+      "adjustedSubtotal": "7600.00",
+      "levies": {
+        "LEVY_A": "19.00",
+        "STAMP_DUTY": "50.00"
+      },
+      "annualPremium": "7669.00"
+    }
+  },
+  {
+    "name": "Seed Baobab LITE, family of six: three members beyond the largest tier",
+    "plan": "catalogue-seed/baobab/lite.v1.json",
+    "startDate": "2027-03-01",
+    "members": [
+      {
+        "relationship": "PRINCIPAL",
+        "sex": "MALE",
+        "dateOfBirth": "1985-05-05"
+      },
+      {
+        "relationship": "SPOUSE",
+        "sex": "FEMALE",
+        "dateOfBirth": "1987-06-06"
+      },
+      {
+        "relationship": "CHILD",
+        "sex": "MALE",
+        "dateOfBirth": "2012-07-07"
+      },
+      {
+        "relationship": "CHILD",
+        "sex": "FEMALE",
+        "dateOfBirth": "2014-08-08"
+      },
+      {
+        "relationship": "CHILD",
+        "sex": "MALE",
+        "dateOfBirth": "2017-09-09"
+      },
+      {
+        "relationship": "CHILD",
+        "sex": "FEMALE",
+        "dateOfBirth": "2020-10-10"
+      }
+    ],
+    "selection": {
+      "INPATIENT": "IP-80K"
+    },
+    "expected": {
+      "modules": {
+        "INPATIENT": "12100.00"
+      },
+      "subtotal": "12100.00",
+      "adjustments": {},
+      "adjustedSubtotal": "12100.00",
+      "levies": {
+        "LEVY_A": "30.25",
+        "STAMP_DUTY": "50.00"
+      },
+      "annualPremium": "12180.25"
+    }
+  }
+]

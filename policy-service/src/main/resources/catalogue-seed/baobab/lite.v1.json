@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "insurer": {
+    "code": "BAOBAB",
+    "name": "Baobab Cover (fictional)"
+  },
+  "product": {
+    "code": "MEDICAL",
+    "line": "HEALTH",
+    "name": "Baobab Medical"
+  },
+  "plan": {
+    "code": "LITE",
+    "name": "Baobab Lite",
+    "version": 1,
+    "currency": "KES",
+    "sale": {
+      "from": "2026-01-01",
+      "to": null
+    },
+    "ageBasis": "AT_START",
+    "eligibility": {
+      "coverTypes": [
+        "INDIVIDUAL",
+        "FAMILY"
+      ],
+      "principalAge": {
+        "min": 18,
+        "max": 60
+      },
+      "spouseAge": {
+        "min": 18,
+        "max": 60
+      },
+      "childAge": {
+        "min": 0,
+        "max": 18
+      },
+      "maxChildren": 4
+    },
+    "modules": [
+      {
+        "code": "INPATIENT",
+        "mandatory": true,
+        "options": [
+          {
+            "code": "IP-80K",
+            "benefits": {
+              "code": "INPATIENT",
+              "limit": {
+                "amount": 80000,
+                "period": "PER_YEAR",
+                "scope": "SHARED"
+              },
+              "children": [
+                {
+                  "code": "GENERAL_INPATIENT",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "DISCHARGE_SUMMARY"
+                  ]
+                },
+                {
+                  "code": "CHRONIC",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "MEDICAL_REPORT"
+                  ],
+                  "limit": {
+                    "amount": 30000,
+                    "period": "PER_YEAR",
+                    "scope": "SHARED"
+                  }
+                },
+                {
+                  "code": "MATERNITY_DELIVERY",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "MEDICAL_REPORT"
+                  ],
+                  "limit": {
+                    "amount": 20000,
+                    "period": "PER_YEAR",
+                    "scope": "SHARED"
+                  }
+                }
+              ]
+            },
+            "rating": {
+              "model": "FAMILY_SIZE_TIER",
+              "tables": [
+                {
+                  "tiers": [
+                    {
+                      "members": 1,
+                      "annual": 3600
+                    },
+                    {
+                      "members": 2,
+                      "annual": 5800
+                    },
+                    {
+                      "members": 3,
+                      "annual": 7600
+                    }
+                  ],
+                  "additionalMemberAnnual": 1500
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "waitingRules": [
+      {
+        "code": "GENERAL_ILLNESS",
+        "days": 30,
+        "when": {
+          "cause": "ILLNESS"
+        }
+      },
+      {
+        "code": "OTHER_SURGERY",
+        "days": 365,
+        "when": {
+          "cause": "ILLNESS",
+          "surgical": true
+        }
+      },
+      {
+        "code": "PRE_EXISTING",
+        "days": 365,
+        "when": {
+          "conditionTags": [
+            "PRE_EXISTING",
+            "CHRONIC"
+          ]
+        }
+      },
+      {
+        "code": "MATERNITY",
+        "days": 365,
+        "when": {
+          "benefits": [
+            "MATERNITY_DELIVERY"
+          ]
+        }
+      }
+    ],
+    "exclusions": [
+      "Cosmetic treatment",
+      "Self-inflicted injury"
+    ],
+    "claimRules": {
+      "filingDeadlineDays": 60
+    },
+    "cancellation": {
+      "noticeDays": 14,
+      "refund": {
+        "model": "NONE"
+      }
+    },
+    "adjustments": [],
+    "levies": [
+      {
+        "code": "LEVY_A",
+        "type": "PERCENT",
+        "value": 0.0025
+      },
+      {
+        "code": "STAMP_DUTY",
+        "type": "FIXED",
+        "value": 50
+      }
+    ]
+  }
+}

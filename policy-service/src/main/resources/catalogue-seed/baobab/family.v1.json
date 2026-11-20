@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "insurer": {
+    "code": "BAOBAB",
+    "name": "Baobab Cover (fictional)"
+  },
+  "product": {
+    "code": "MEDICAL",
+    "line": "HEALTH",
+    "name": "Baobab Medical"
+  },
+  "plan": {
+    "code": "FAMILY",
+    "name": "Baobab Family",
+    "version": 1,
+    "currency": "KES",
+    "sale": {
+      "from": "2026-01-01",
+      "to": "2027-12-31"
+    },
+    "ageBasis": "AT_START",
+    "eligibility": {
+      "coverTypes": [
+        "INDIVIDUAL",
+        "FAMILY"
+      ],
+      "principalAge": {
+        "min": 18,
+        "max": 65
+      },
+      "spouseAge": {
+        "min": 18,
+        "max": 65
+      },
+      "childAge": {
+        "min": 0,
+        "max": 18,
+        "maxIfStudent": 24,
+        "studentEvidenceRequired": true
+      },
+      "maxChildren": 5
+    },
+    "modules": [
+      {
+        "code": "INPATIENT",
+        "mandatory": true,
+        "options": [
+          {
+            "code": "IP-150K",
+            "benefits": {
+              "code": "INPATIENT",
+              "limit": {
+                "amount": 150000,
+                "period": "PER_YEAR",
+                "scope": "SHARED"
+              },
+              "children": [
+                {
+                  "code": "GENERAL_INPATIENT",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "DISCHARGE_SUMMARY"
+                  ]
+                },
+                {
+                  "code": "CHRONIC",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "MEDICAL_REPORT"
+                  ],
+                  "limit": {
+                    "amount": 60000,
+                    "period": "PER_YEAR",
+                    "scope": "SHARED"
+                  },
+                  "children": [
+                    {
+                      "code": "MENTAL_HEALTH",
+                      "limit": {
+                        "amount": 20000,
+                        "period": "PER_YEAR",
+                        "scope": "SHARED"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "code": "IMAGING",
+                  "requiredDocuments": [
+                    "INVOICE"
+                  ],
+                  "limit": {
+                    "amount": 25000,
+                    "period": "PER_YEAR",
+                    "scope": "PER_MEMBER",
+                    "maxCount": 2
+                  }
+                },
+                {
+                  "code": "MATERNITY_DELIVERY",
+                  "requiredDocuments": [
+                    "INVOICE",
+                    "MEDICAL_REPORT"
+                  ],
+                  "limit": {
+                    "amount": 30000,
+                    "period": "PER_YEAR",
+                    "scope": "SHARED"
+                  }
+                }
+              ]
+            },
+            "rating": {
+              "model": "FAMILY_SIZE_TIER",
+              "tables": [
+                {
+                  "tiers": [
+                    {
+                      "members": 1,
+                      "annual": 5200
+                    },
+                    {
+                      "members": 2,
+                      "annual": 8400
+                    },
+                    {
+                      "members": 3,
+                      "annual": 11000
+                    },
+                    {
+                      "members": 4,
+                      "annual": 13200
+                    }
+                  ],
+                  "additionalMemberAnnual": 2100
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "code": "OUTPATIENT",
+        "mandatory": false,
+        "options": [
+          {
+            "code": "OP-35K",
+            "benefits": {
+              "code": "OUTPATIENT",
+              "limit": {
+                "amount": 35000,
+                "period": "PER_YEAR",
+                "scope": "SHARED"
+              },
+              "copay": {
+                "type": "FIXED_PER_VISIT",
+                "value": 250
+              },
+              "children": [
+                {
+                  "code": "CONSULTATION",
+                  "requiredDocuments": [
+                    "RECEIPT"
+                  ]
+                },
+                {
+                  "code": "DENTAL",
+                  "requiredDocuments": [
+                    "RECEIPT"
+                  ],
+                  "limit": {
+                    "amount": 4000,
+                    "period": "PER_YEAR",
+                    "scope": "SHARED"
+                  }
+                },
+                {
+                  "code": "OPTICAL",
+                  "requiredDocuments": [
+                    "RECEIPT"
+                  ],
+                  "limit": {
+                    "amount": 4000,
+                    "period": "PER_YEAR",
+                    "scope": "SHARED"
+                  }
+                }
+              ]
+            },
+            "rating": {
+              "model": "FAMILY_SIZE_TIER",
+              "ageSubject": "PRINCIPAL",
+              "tables": [
+                {
+                  "age": {
+                    "min": 0,
+                    "max": 44
+                  },
+                  "tiers": [
+                    {
+                      "members": 1,
+                      "annual": 12000
+                    },
+                    {
+                      "members": 2,
+                      "annual": 15500
+                    },
+                    {
+                      "members": 3,
+                      "annual": 19000
+                    },
+                    {
+                      "members": 4,
+                      "annual": 22500
+                    }
+                  ],
+                  "additionalMemberAnnual": 3200
+                },
+                {
+                  "age": {
+                    "min": 45,
+                    "max": 99
+                  },
+                  "tiers": [
+                    {
+                      "members": 1,
+                      "annual": 14500
+                    },
+                    {
+                      "members": 2,
+                      "annual": 18500
+                    },
+                    {
+                      "members": 3,
+                      "annual": 22500
+                    },
+                    {
+                      "members": 4,
+                      "annual": 26500
+                    }
+                  ],
+                  "additionalMemberAnnual": 3600
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "waitingRules": [
+      {
+        "code": "GENERAL_ILLNESS",
+        "days": 30,
+        "when": {
+          "cause": "ILLNESS"
+        }
+      },
+      {
+        "code": "OTHER_SURGERY",
+        "days": 300,
+        "when": {
+          "cause": "ILLNESS",
+          "surgical": true
+        }
+      },
+      {
+        "code": "ACUTE_SURGERY",
+        "days": 30,
+        "precedence": 1,
+        "when": {
+          "cause": "ILLNESS",
+          "surgical": true,
+          "conditionTags": [
+            "ACUTE_ABDOMEN"
+          ]
+        }
+      },
+      {
+        "code": "PRE_EXISTING",
+        "days": 270,
+        "when": {
+          "conditionTags": [
+            "PRE_EXISTING"
+          ]
+        }
+      },
+      {
+        "code": "MATERNITY",
+        "days": 300,
+        "when": {
+          "benefits": [
+            "MATERNITY_DELIVERY"
+          ]
+        }
+      }
+    ],
+    "exclusions": [
+      "Cosmetic treatment",
+      "Self-inflicted injury"
+    ],
+    "claimRules": {
+      "filingDeadlineDays": 60
+    },
+    "cancellation": {
+      "noticeDays": 14,
+      "refund": {
+        "model": "NONE"
+      }
+    },
+    "adjustments": [
+      {
+        "code": "ONLINE_DISCOUNT",
+        "type": "PERCENT",
+        "value": -0.05
+      }
+    ],
+    "levies": [
+      {
+        "code": "LEVY_A",
+        "type": "PERCENT",
+        "value": 0.0025
+      },
+      {
+        "code": "STAMP_DUTY",
+        "type": "FIXED",
+        "value": 50
+      }
+    ]
+  }
+}

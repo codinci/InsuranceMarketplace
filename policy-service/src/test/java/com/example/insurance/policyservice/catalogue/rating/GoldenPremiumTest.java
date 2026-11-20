@@ -24,10 +24,13 @@ class GoldenPremiumTest {
 
   private final PremiumCalculator calculator = new PremiumCalculator(CatalogueFixtures.registry());
 
+  /** The M3a fixtures, the four seed plans (M3b) and the onboarded third insurer. */
   static Stream<Arguments> cases() {
-    JsonNode cases =
-        CatalogueFixtures.MAPPER.readTree(CatalogueFixtures.resource("golden-premiums.json"));
-    return cases.valueStream().map(c -> Arguments.of(c.get("name").asString(), c));
+    return Stream.of(
+            "golden-premiums.json", "seed-premiums.json", "onboarding/mvule-care.expected.json")
+        .map(file -> CatalogueFixtures.MAPPER.readTree(CatalogueFixtures.resource(file)))
+        .flatMap(node -> node.isArray() ? node.valueStream() : Stream.of(node))
+        .map(c -> Arguments.of(c.get("name").asString(), c));
   }
 
   @ParameterizedTest(name = "{0}")
@@ -51,7 +54,7 @@ class GoldenPremiumTest {
 
     PremiumBreakdown breakdown =
         calculator.price(
-            CatalogueFixtures.validPlan(golden.get("plan").asString()),
+            CatalogueFixtures.planAt(golden.get("plan").asString()),
             selection,
             members,
             LocalDate.parse(golden.get("startDate").asString()));

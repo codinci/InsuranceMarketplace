@@ -1,0 +1,39 @@
+{
+  "name": "Mvule CARE, family of three, inpatient and flat outpatient",
+  "plan": "onboarding/mvule-care.v1.json",
+  "startDate": "2027-06-01",
+  "members": [
+    {
+      "relationship": "PRINCIPAL",
+      "sex": "FEMALE",
+      "dateOfBirth": "1980-06-01"
+    },
+    {
+      "relationship": "SPOUSE",
+      "sex": "MALE",
+      "dateOfBirth": "1979-01-01"
+    },
+    {
+      "relationship": "CHILD",
+      "sex": "FEMALE",
+      "dateOfBirth": "2015-09-09"
+    }
+  ],
+  "selection": {
+    "INPATIENT": "IP-120K",
+    "OUTPATIENT": "OP-20K"
+  },
+  "expected": {
+    "modules": {
+      "INPATIENT": "26000.00",
+      "OUTPATIENT": "13500.00"
+    },
+    "subtotal": "39500.00",
+    "adjustments": {},
+    "adjustedSubtotal": "39500.00",
+    "levies": {
+      "LEVY_A": "98.75"
+    },
+    "annualPremium": "39598.75"
+  }
+}
