@@ -51,6 +51,38 @@
 2. A plan author adds a `SHARED` dental limit of 10,000 under a `PER_MEMBER` outpatient limit of 40,000. Which violation do they get, and why does the rule exist? Would a `PER_MEMBER` dental limit under a `SHARED` outpatient limit pass?
 3. A claim is for a surgical illness tagged `ACUTE_ABDOMEN` on the Baobab plan. Using the waiting-rule table in docs/catalogue-schema.md, which rule applies, and what would change if `ACUTE_SURGERY` had no `precedence`?
 
+## Corrected answers
+
+1. **Answered by the owner:** 18,360.
+   **Corrected version:** Each line is rounded HALF_UP to 2 places, and the premium is the sum of the rounded lines (ADR-003).
+
+   | Step | Calculation | Amount |
+   |---|---|---|
+   | Inpatient, family of 5 | largest tier (4 members) 13,200 + 1 extra member x 2,100 | 15,300.00 |
+   | Subtotal | | 15,300.00 |
+   | Online discount (-5%) | 15,300 x -0.05 | -765.00 |
+   | Adjusted subtotal | the levy is charged on this, not on the subtotal | 14,535.00 |
+   | Levy (0.25%) | 14,535 x 0.0025 = 36.3375, rounded HALF_UP | 36.34 |
+   | **Annual premium** | 14,535.00 + 36.34 | **14,571.34** |
+
+   The real Baobab fixture also has a fixed stamp duty of 50, which makes 14,621.34. That is the golden case "Baobab family of five, inpatient only" in `golden-premiums.json`. The question named only the discount and the 0.25% levy, so 14,571.34 is the answer to the question as asked.
+
+   The owner's answer was not correct. 18,360 is 15,300 plus 20%, which suggests the discount was added instead of subtracted, or a percentage was misread (0.25% is 0.0025, not 0.25). Three points to keep: a family beyond the largest tier pays the largest tier plus the extra amount per additional member; a discount is a negative adjustment; levies apply to the adjusted subtotal.
+
+2. **Answered by the owner:** It returns a scope violation error. The rule exists to stop a child's scope being broader than its parent's. A PER_MEMBER limit would pass under a SHARED outpatient limit.
+   **Corrected version:** The validator reports `INVALID_SCOPE_NESTING` at the dental node's `limit/scope` path, for example `/plan/modules/1/options/0/benefits/children/0/limit/scope` (D32). The amount itself is fine (10,000 is not above 40,000), so this is the only violation. The rule exists because a `SHARED` pot belongs to the whole family, while a `PER_MEMBER` pot belongs to one person. A family-wide dental pot inside each person's outpatient pot has no clear meaning. At adjudication (M6), claim-service reserves utilisation on every limited node in the chain, keyed by member for `PER_MEMBER` and by policy for `SHARED`, and it could not tell which person's 40,000 the shared 10,000 sits inside. The reverse, a `PER_MEMBER` dental limit of 10,000 under a `SHARED` outpatient limit of 40,000, passes: each member has their own 10,000 for dental, and every dental claim also counts against the family's shared 40,000. It still has to obey the amount rule, so a per-member dental limit of 50,000 would fail with `CHILD_LIMIT_EXCEEDS_PARENT`.
+
+   The owner's answer was correct on the rule and on the reverse case. The code is `INVALID_SCOPE_NESTING`, not a scope violation; clients match on the exact code.
+
+3. **Answered by the owner:** The precedence rule applies and the surgery is covered after 30 days. Without precedence, ACUTE_SURGERY would have the same priority as GENERAL_ILLNESS.
+   **Corrected version:** All three Baobab rules match the claim: `GENERAL_ILLNESS` (cause ILLNESS, 30 days, precedence 0), `OTHER_SURGERY` (ILLNESS and surgical, 300 days, precedence 0) and `ACUTE_SURGERY` (ILLNESS, surgical and tag `ACUTE_ABDOMEN`, 30 days, precedence 1). The highest precedence wins, so `ACUTE_SURGERY` applies and the waiting period is 30 days. The incident date must be at least 30 days after the policy start date for the claim to pass verification (PLAN 9.1, M5). Without its precedence, all three rules have precedence 0, so the tie-break picks the longest: `OTHER_SURGERY` with 300 days. The acute-abdomen exception would disappear, and an emergency appendix operation in month two would be refused. That is why an exception that is *shorter* than the general rule needs a higher precedence: "longest wins" alone always favours the stricter rule.
+
+   The owner's answer was correct on the first part. The second part named the effect (equal priority) but not the outcome: the longest rule wins, so the wait becomes 300 days, not 30.
+
+## Summary of the self-check
+
+All three questions have corrected answers. Question 1 was not correct: the extra member, the discount sign and the levy base needed working through. Question 2 was correct apart from the code name (`INVALID_SCOPE_NESTING`). Question 3 was correct on the rule chosen, and incomplete on what happens without precedence (300 days).
+
 ## Official documentation
 
 - Java records: https://docs.oracle.com/en/java/javase/21/language/records.html
