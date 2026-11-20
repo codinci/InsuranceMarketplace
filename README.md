@@ -39,4 +39,4 @@ Clients reach auth-service through the API gateway on `http://localhost:${GATEWA
 
 ## Status
 
-M0a (build, quality gates, CI, walking skeleton) is done. M0b (local infrastructure, event envelope, correlation IDs) is in progress. See the status tracker in [PLAN.md](PLAN.md) section 21.7.
+Done: M0a (build, quality gates, CI), M0b (local infrastructure, event envelope, correlation IDs), M1 (auth-service) and M2 (API gateway). In progress: M3a, the catalogue model and rating engine in policy-service. Plan documents and their validation rules are described in [docs/catalogue-schema.md](docs/catalogue-schema.md).
