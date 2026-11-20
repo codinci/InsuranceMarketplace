@@ -25,7 +25,10 @@ class PolicyServiceArchitectureTest {
 
   private static final String CATALOGUE = "com.example.insurance.policyservice.catalogue..";
   private static final String POLICY = "com.example.insurance.policyservice.policy..";
-  private static final String[] MONEY_PACKAGES = {"..catalogue.rating..", "..catalogue.rules.."};
+  private static final String CATALOGUE_API = "com.example.insurance.policyservice.catalogue.api..";
+  private static final String[] MONEY_PACKAGES = {
+    "..catalogue.rating..", "..catalogue.rules..", "..catalogue.api..", "..policyservice.policy.."
+  };
 
   private static final DescribedPredicate<JavaClass> FLOATING_POINT =
       DescribedPredicate.describe(
@@ -65,15 +68,32 @@ class PolicyServiceArchitectureTest {
           .because("catalogue and policy talk only through interfaces (ADR-001)");
 
   @ArchTest
-  static final ArchRule POLICY_DOES_NOT_USE_CATALOGUE_INTERNALS =
+  static final ArchRule POLICY_USES_THE_CATALOGUE_ONLY_THROUGH_ITS_API =
       noClasses()
           .that()
           .resideInAPackage(POLICY)
           .should()
-          .dependOnClassesThat()
-          .resideInAnyPackage("..catalogue.domain..", "..catalogue.repository..")
-          .because("policy never touches catalogue entities or tables (ADR-001)")
+          .dependOnClassesThat(
+              JavaClass.Predicates.resideInAPackage(CATALOGUE)
+                  .and(
+                      DescribedPredicate.not(JavaClass.Predicates.resideInAPackage(CATALOGUE_API))))
+          .because("policy talks to the catalogue only through catalogue.api (ADR-001)")
           .allowEmptyShould(true);
+
+  @ArchTest
+  static final ArchRule THE_CATALOGUE_API_EXPOSES_NO_INTERNALS =
+      noClasses()
+          .that()
+          .resideInAPackage(CATALOGUE_API)
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              "..catalogue.domain..",
+              "..catalogue.repository..",
+              "..catalogue.rating..",
+              "..catalogue.rules..",
+              "..catalogue.service..")
+          .because("only the API's own types cross the boundary (ADR-001)");
 
   @ArchTest
   static final ArchRule NO_FLOATING_POINT_FIELDS =
