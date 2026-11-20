@@ -23,6 +23,7 @@
     <module>common-events</module>
     <module>common-starter</module>
     <module>hello-service</module>
+    <module>auth-service</module>
     <module>infra-tests</module>
   </modules>
 
@@ -38,6 +39,9 @@
     <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
     <jacoco.version>0.8.16</jacoco.version>
     <archunit.version>1.5.1</archunit.version>
+    <!-- Not managed by Spring Boot 4.1.2 (checked against its BOM, PLAN 17 M1 step 1). -->
+    <springdoc.version>3.2.0</springdoc.version>
+    <bucket4j.version>8.10.1</bucket4j.version>
 
     <!-- Line coverage floor per module (PLAN 16.1). Raised per package by ADR, never lowered. -->
     <coverage.line.minimum>0.70</coverage.line.minimum>
@@ -52,6 +56,21 @@
         <artifactId>archunit-junit5</artifactId>
         <version>${archunit.version}</version>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.bucket4j</groupId>
+        <artifactId>bucket4j-core</artifactId>
+        <version>${bucket4j.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

@@ -5,7 +5,8 @@ COPY pom.xml ./
 COPY common-events ./common-events
 COPY common-starter ./common-starter
 COPY hello-service ./hello-service
-# The reactor lists every module, so infra-tests must exist even though it is not built here.
+# The reactor lists every module, so these must exist even though they are not built here.
+COPY auth-service ./auth-service
 COPY infra-tests ./infra-tests
 RUN mvn -B -q -pl hello-service -am package -DskipTests
 
