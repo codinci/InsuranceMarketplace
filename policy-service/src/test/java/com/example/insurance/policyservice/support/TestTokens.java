@@ -46,15 +46,24 @@ public final class TestTokens {
   }
 
   public static String customer() {
-    return sign(List.of("CUSTOMER"), null);
+    return customer(UUID.randomUUID());
+  }
+
+  /** A customer with a known user id, for ownership tests. */
+  public static String customer(UUID userId) {
+    return sign(userId, List.of("CUSTOMER"), null);
   }
 
   private static String sign(List<String> roles, UUID insurerId) {
+    return sign(UUID.randomUUID(), roles, insurerId);
+  }
+
+  private static String sign(UUID subject, List<String> roles, UUID insurerId) {
     Instant now = Instant.now();
     JwtClaimsSet.Builder claims =
         JwtClaimsSet.builder()
             .issuer(ISSUER)
-            .subject(UUID.randomUUID().toString())
+            .subject(subject.toString())
             .issuedAt(now)
             .expiresAt(now.plusSeconds(900))
             .claim("roles", roles);

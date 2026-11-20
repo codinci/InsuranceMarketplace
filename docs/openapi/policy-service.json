@@ -10,6 +10,9 @@
     "description" : "Generated server url"
   } ],
   "tags" : [ {
+    "name" : "Profile",
+    "description" : "The calling customer's own policy-holder details."
+  }, {
     "name" : "Catalogue",
     "description" : "Browse insurers and plans. Public: no token needed (PLAN 4)."
   }, {
@@ -17,6 +20,120 @@
     "description" : "Insurers and plan import. Insurer admins act only on their own insurer."
   } ],
   "paths" : {
+    "/api/v1/me/profile" : {
+      "get" : {
+        "tags" : [ "Profile" ],
+        "summary" : "Get my profile",
+        "description" : "CUSTOMER only. The national ID is masked.",
+        "operationId" : "get",
+        "responses" : {
+          "200" : {
+            "description" : "The profile",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No profile yet (PROFILE_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      },
+      "put" : {
+        "tags" : [ "Profile" ],
+        "summary" : "Create or update my profile",
+        "description" : "Needed before buying a policy. The national ID is stored encrypted.",
+        "operationId" : "put",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProfileRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The saved profile",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid details (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
     "/api/v1/admin/plans/{planId}/retire" : {
       "post" : {
         "tags" : [ "Catalogue admin" ],
@@ -637,6 +754,75 @@
   },
   "components" : {
     "schemas" : {
+      "ProfileRequest" : {
+        "type" : "object",
+        "description" : "The policy holder's details. Email stays with auth-service.",
+        "properties" : {
+          "firstName" : {
+            "type" : "string",
+            "example" : "Amina",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "lastName" : {
+            "type" : "string",
+            "example" : "Otieno",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "dateOfBirth" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "1990-06-15"
+          },
+          "sex" : {
+            "type" : "string",
+            "enum" : [ "FEMALE", "MALE" ]
+          },
+          "nationalId" : {
+            "type" : "string",
+            "description" : "Upper-case letters and digits, 5 to 20. Stored encrypted.",
+            "example" : "A1234567",
+            "minLength" : 1,
+            "pattern" : "^[A-Z0-9]{5,20}$"
+          },
+          "phone" : {
+            "type" : "string",
+            "example" : "+254700000000",
+            "minLength" : 1,
+            "pattern" : "^\\+?[0-9]{9,15}$"
+          }
+        },
+        "required" : [ "dateOfBirth", "firstName", "lastName", "nationalId", "phone", "sex" ]
+      },
+      "ProfileResponse" : {
+        "type" : "object",
+        "description" : "The policy holder's details. The national ID is masked.",
+        "properties" : {
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "dateOfBirth" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "sex" : {
+            "type" : "string",
+            "enum" : [ "FEMALE", "MALE" ]
+          },
+          "nationalIdMasked" : {
+            "type" : "string",
+            "description" : "Only the last three characters.",
+            "example" : "***567"
+          },
+          "phone" : {
+            "type" : "string"
+          }
+        }
+      },
       "AdminPlanResponse" : {
         "type" : "object",
         "description" : "A plan version as staff see it.",

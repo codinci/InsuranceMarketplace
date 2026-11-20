@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .permitAll()
                 .requestMatchers("/api/v1/admin/**")
                 .hasRole(Roles.ADMIN)
+                .requestMatchers("/api/v1/me/**", "/api/v1/quotes/**", "/api/v1/policies/**")
+                .hasRole(Roles.CUSTOMER)
                 .anyRequest()
                 .authenticated())
         .oauth2ResourceServer(oauth2 ->
