@@ -44,6 +44,17 @@ class PolicyServiceArchitectureTest {
           .because("constructor injection only (CLAUDE.md Domain rules)");
 
   @ArchTest
+  static final ArchRule CONTROLLERS_DO_NOT_TOUCH_PERSISTENCE =
+      noClasses()
+          .that()
+          .resideInAPackage("..controller..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              "com.example.insurance..repository..", "com.example.insurance..domain..")
+          .because("controllers use DTOs and services, never entities or repositories (CLAUDE.md)");
+
+  @ArchTest
   static final ArchRule CATALOGUE_DOES_NOT_USE_POLICY =
       noClasses()
           .that()
