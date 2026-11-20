@@ -42,6 +42,27 @@
 2. The `roles` claim is read from the token, not from the database, so a role change takes up to 15 minutes to apply. Describe a case where that delay matters, and one change to the design that would shorten it without storing sessions.
 3. `StaffService` checks `insurerId` in code, not in the filter chain. Give one request that a path-based rule like `hasRole("ADMIN")` would allow but the service must refuse.
 
+## Corrected answers
+
+1. **Answered by the owner:** the owner sees a session timed out, because revoking the whole family is safer than rejecting only the reused token, since the stolen token cannot be traced.
+   **Corrected version:** On the owner's next refresh, the token they hold has already been rotated, so it is reused and the server returns `REFRESH_TOKEN_REUSED` (401). The owner's session has ended, and they must sign in again. Revoking the family is safer because the server cannot tell which holder is the real owner. The thief's refresh created a newer token in the same family. Rejecting only the reused token would leave that newer token valid, so the thief would stay signed in. Revoking the family ends every token in that login chain, including the thief's. The revocation is committed even though the request returns an error (`noRollbackFor`, ADR-007 rule 8). Stolen tokens are not traced: the family is cut off, and the owner signs in again to get a fresh one.
+
+   The owner's answer was right on the main point, which is the session ending. Its reason was wrong: the stolen token is not traced, the family is revoked so the thief's newer token also dies.
+
+2. **Answered by the owner:** You can change the refresh token timer to a smaller value, but that would increase the number of requests.
+   **Corrected version:** The 15-minute delay comes from the access token lifetime (`auth.token.access-ttl=PT15M`), not the refresh token. The `roles` claim is fixed inside the access token until it expires. The delay matters when access must end at once, for example an adjuster who is removed from an insurer or deactivated keeps approving claims for up to 15 minutes. The design change is to shorten the access token lifetime, for example to 5 minutes. Each refresh then re-reads the user and roles from the database, so a role change takes effect within 5 minutes. The cost is more refresh requests, which is the trade-off the owner named. Shortening the refresh token (7 days) does not change the role delay.
+
+   The owner's answer was right that shorter lifetimes cost more requests. It named the wrong token, and it did not give the case where the delay matters.
+
+3. **Answered by the owner:** Roles direct a user to the page they see after login, and the resource rule stops a user of one insurer from doing admin work for another.
+   **Corrected version:** The request is an insurer admin, a user with the `ADMIN` role and `insurerId` A, who calls `POST /api/v1/admin/users` with `insurerId` B and role `ADJUSTER`. `hasRole("ADMIN")` lets it through, because the role matches and the filter chain never looks at the body. `StaffService.create` compares the target insurer with the token's `insurerId`, sees that they differ, and throws `INSURER_SCOPE_VIOLATION`. The filter decides who may enter the endpoint, and the service decides which data they may touch.
+
+   The owner's answer named the right rule but no request. The example above shows why the check must be in the service.
+
+## Summary of the self-check
+
+All three questions have corrected answers. Question 1 was right on the main point. Question 2 named the refresh token, when the delay comes from the access token. Question 3 gave the rule without an example.
+
 ## Official documentation
 
 - Spring Security OAuth2 resource server (JWT): https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html
