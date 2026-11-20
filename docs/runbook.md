@@ -7,14 +7,14 @@ Operational steps for running the platform locally. Production runbook sections 
 ```bash
 cp .env.example .env              # then replace every value; .env is never committed
 docker compose --profile infra up -d        # Postgres, Kafka, SeaweedFS and init jobs
-docker compose --profile full up -d --build # plus hello-service (builds the image)
+docker compose --profile full up -d --build # plus auth-service and the API gateway (builds the images)
 docker compose --profile tools up -d        # optional: Kafka UI on http://localhost:8090
 docker compose ps                           # every service should show "healthy"
 docker compose --profile full down          # stop; data volumes are kept
 docker compose --profile full down -v       # stop and DELETE all local data
 ```
 
-Host ports (all bound to 127.0.0.1): Postgres 15432, Kafka 9094 (host listener), SeaweedFS S3 8333, hello-service 8080, Kafka UI 8090. Inside the compose network, Postgres is still `postgres:5432`.
+Host ports (all bound to 127.0.0.1): Postgres 15432, Kafka 9094 (host listener), SeaweedFS S3 8333, the API gateway on GATEWAY_HOST_PORT (default 8080), Kafka UI 8090. Redis and auth-service are not published. Inside the compose network, Postgres is still `postgres:5432`.
 
 ## Before starting: port conflicts
 
@@ -34,14 +34,14 @@ curl -s http://localhost:8333/                                                # 
 
 ## Memory
 
-Measured in M0b with the `infra` profile and `hello-service` running. The estimate in PLAN 15 was 4-4.5 GB for the whole stack.
+Measured in M0b with the `infra` profile and the M0b hello-service running (retired at M2). The estimate in PLAN 15 was 4-4.5 GB for the whole stack.
 
-Reading taken at M0b on a single development machine (`docker stats --no-stream`, the `infra` profile plus `hello-service`, all idle after startup):
+Reading taken at M0b on a single development machine (`docker stats --no-stream`, the `infra` profile plus the M0b hello-service, all idle after startup):
 
 | Container | Memory used | Limit in compose |
 |---|---|---|
 | kafka (KRaft, 8 topics) | 397 MiB | 768 MiB |
-| hello-service (Spring Boot 4, `-Xmx256m`) | 147 MiB | 384 MiB |
+| hello-service (retired at M2; Spring Boot 4, `-Xmx256m`) | 147 MiB | 384 MiB |
 | seaweedfs | 62 MiB | 512 MiB |
 | postgres (5 databases) | 37 MiB | 256 MiB |
 | **Total** | **about 644 MiB** | |
@@ -64,13 +64,13 @@ rm -f "$TMPK"
 **Check the service:**
 
 ```bash
-docker compose --profile full up -d --build auth-service
-curl -s http://localhost:8081/actuator/health
-curl -s http://localhost:8081/.well-known/jwks.json      # the public key, kid "auth-key-1"
+docker compose --profile full up -d --build api-gateway   # also starts redis and auth-service (depends_on)
+curl -s http://localhost:8080/actuator/health
+curl -s http://localhost:8080/.well-known/jwks.json      # the public key, kid "auth-key-1"
 scripts/smoke.sh                                         # register, login, refresh, reuse, staff, JWKS
 ```
 
-Swagger UI for auth-service: `http://localhost:8081/swagger-ui/index.html`. The gateway's aggregate Swagger comes at M2.
+Swagger UI, aggregated through the gateway (lists the auth-service API): `http://localhost:8080/swagger-ui.html`.
 
 **Rotate the signing key (overlap, ADR-007):**
 1. Generate a new key (above) and give it a new `AUTH_JWT_KEY_ID`, for example `auth-key-2`.
