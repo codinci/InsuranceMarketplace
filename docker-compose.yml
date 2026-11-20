@@ -1,6 +1,6 @@
 # Local infrastructure and services (PLAN 15, M0b).
 #   infra profile: Postgres, Kafka, SeaweedFS and their one-off init jobs (daily work).
-#   full profile:  infra plus the services (hello-service now; real services from M1).
+#   full profile:  infra plus the services (auth-service and the gateway from M2).
 #   tools profile: optional Kafka UI.
 # Copy .env.example to .env and set the passwords before the first start.
 name: mini-insurance
@@ -129,6 +129,25 @@ services:
         aws --endpoint-url http://seaweedfs:8333 s3api create-bucket --bucket insurance-documents
     restart: "no"
 
+  # Shared store for the gateway's rate limits (PLAN 3, ADR-009). Never published to the host. If Redis is
+  # down the gateway fails open, so this is not a single point of failure for logins (account lockout is in Postgres).
+  redis:
+    image: redis:8.6.8-alpine
+    profiles: [infra, full]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --requirepass "$$REDIS_PASSWORD" --save "" --appendonly no --maxmemory 64mb --maxmemory-policy volatile-lru
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 128m
+
   auth-service:
     build:
       context: .
@@ -146,8 +165,8 @@ services:
       AUTH_JWT_PRIVATE_KEY_BASE64: ${AUTH_JWT_PRIVATE_KEY_BASE64}
       AUTH_SEED_PLATFORM_ADMIN_EMAIL: ${AUTH_SEED_PLATFORM_ADMIN_EMAIL:-}
       AUTH_SEED_PLATFORM_ADMIN_PASSWORD: ${AUTH_SEED_PLATFORM_ADMIN_PASSWORD:-}
-    ports:
-      - "127.0.0.1:${AUTH_HOST_PORT:-8081}:8080"
+    # Not published to the host: clients reach auth-service through the gateway (PLAN 12). Debug with
+    # `docker compose exec` or through the gateway's routes.
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -156,27 +175,28 @@ services:
       start_period: 40s
     mem_limit: 384m
 
-  hello-service:
+  # The only published service: every client request enters here (PLAN 3, 12). Port is GATEWAY_HOST_PORT in .env.
+  api-gateway:
     build:
       context: .
-      dockerfile: hello-service/Dockerfile
+      dockerfile: api-gateway/Dockerfile
     profiles: [full]
     depends_on:
-      postgres:
+      redis:
         condition: service_healthy
-      kafka:
+      auth-service:
         condition: service_healthy
     environment:
       JAVA_OPTS: "-Xmx256m"
-    # HELLO_HOST_PORT lets a machine with another web server on 8080 pick a free port in .env.
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
-      - "127.0.0.1:${HELLO_HOST_PORT:-8080}:8080"
+      - "127.0.0.1:${GATEWAY_HOST_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 20
-      start_period: 30s
+      start_period: 40s
     mem_limit: 384m
 
 volumes:
