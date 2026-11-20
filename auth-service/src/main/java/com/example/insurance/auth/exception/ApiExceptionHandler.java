@@ -1,8 +1,8 @@
 package com.example.insurance.auth.exception;
 
+import com.example.insurance.common.problem.Problems;
 import java.util.List;
 import java.util.Map;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -32,13 +32,6 @@ public class ApiExceptionHandler {
 
   static ResponseEntity<ProblemDetail> problem(
       ErrorCode code, String detail, List<Map<String, String>> errors) {
-    HttpStatus status = code.status();
-    ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
-    body.setTitle(status.getReasonPhrase());
-    body.setProperty("code", code.name());
-    if (errors != null) {
-      body.setProperty("errors", errors);
-    }
-    return ResponseEntity.status(status).body(body);
+    return Problems.response(code.status(), code.name(), detail, errors);
   }
 }

@@ -1,7 +1,7 @@
 package com.example.insurance.auth.config;
 
-import com.example.insurance.auth.exception.SecurityProblemHandlers;
 import com.example.insurance.common.Roles;
+import com.example.insurance.common.problem.ServletSecurityProblems;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -55,8 +55,8 @@ public class SecurityConfig {
             oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
         .exceptionHandling(handling ->
             handling
-                .authenticationEntryPoint(SecurityProblemHandlers.entryPoint())
-                .accessDeniedHandler(SecurityProblemHandlers.accessDenied()));
+                .authenticationEntryPoint(ServletSecurityProblems.entryPoint())
+                .accessDeniedHandler(ServletSecurityProblems.accessDenied()));
     return http.build();
   }
 
