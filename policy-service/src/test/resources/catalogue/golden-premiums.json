@@ -1,0 +1,206 @@
+[
+  {
+    "name": "Acacia family of three, inpatient and OP-40K, next-birthday ages 37, 35 (birthday on start) and 12",
+    "plan": "acacia-standard.v1.json", "startDate": "2027-01-01",
+    "members": [
+      { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1990-06-15" },
+      { "relationship": "SPOUSE", "sex": "FEMALE", "dateOfBirth": "1992-01-01" },
+      { "relationship": "CHILD", "sex": "FEMALE", "dateOfBirth": "2015-03-10" }
+    ],
+    "selection": { "INPATIENT": "IP-200K", "OUTPATIENT": "OP-40K" },
+    "expected": {
+      "modules": { "INPATIENT": "29000.00", "OUTPATIENT": "21000.00" },
+      "subtotal": "50000.00", "adjustments": {}, "adjustedSubtotal": "50000.00",
+      "levies": { "LEVY_A": "125.00", "STAMP_DUTY": "50.00" },
+      "annualPremium": "50175.00"
+    }
+  },
+  {
+    "name": "Acacia next birthday crosses a band edge: 35 completed, rated 36",
+    "plan": "acacia-standard.v1.json", "startDate": "2027-01-01",
+    "members": [ { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1991-01-02" } ],
+    "selection": { "INPATIENT": "IP-200K" },
+    "expected": {
+      "modules": { "INPATIENT": "13000.00" },
+      "subtotal": "13000.00", "adjustments": {}, "adjustedSubtotal": "13000.00",
+      "levies": { "LEVY_A": "32.50", "STAMP_DUTY": "50.00" },
+      "annualPremium": "13082.50"
+    }
+  },
+  {
+    "name": "Acacia birthday on the start date keeps that age: rated 35",
+    "plan": "acacia-standard.v1.json", "startDate": "2027-01-01",
+    "members": [ { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1992-01-01" } ],
+    "selection": { "INPATIENT": "IP-200K" },
+    "expected": {
+      "modules": { "INPATIENT": "10000.00" },
+      "subtotal": "10000.00", "adjustments": {}, "adjustedSubtotal": "10000.00",
+      "levies": { "LEVY_A": "25.00", "STAMP_DUTY": "50.00" },
+      "annualPremium": "10075.00"
+    }
+  },
+  {
+    "name": "Acacia oldest band at its top edge: rated 70",
+    "plan": "acacia-standard.v1.json", "startDate": "2027-01-01",
+    "members": [ { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1957-01-02" } ],
+    "selection": { "INPATIENT": "IP-200K" },
+    "expected": {
+      "modules": { "INPATIENT": "24000.00" },
+      "subtotal": "24000.00", "adjustments": {}, "adjustedSubtotal": "24000.00",
+      "levies": { "LEVY_A": "60.00", "STAMP_DUTY": "50.00" },
+      "annualPremium": "24110.00"
+    }
+  },
+  {
+    "name": "Acacia the larger outpatient option OP-80K",
+    "plan": "acacia-standard.v1.json", "startDate": "2027-01-01",
+    "members": [ { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1985-08-08" } ],
+    "selection": { "INPATIENT": "IP-200K", "OUTPATIENT": "OP-80K" },
+    "expected": {
+      "modules": { "INPATIENT": "13000.00", "OUTPATIENT": "16500.00" },
+      "subtotal": "29500.00", "adjustments": {}, "adjustedSubtotal": "29500.00",
+      "levies": { "LEVY_A": "73.75", "STAMP_DUTY": "50.00" },
+      "annualPremium": "29623.75"
+    }
+  },
+  {
+    "name": "Acacia maternity with one eligible member (female principal)",
+    "plan": "acacia-standard.v1.json", "startDate": "2027-01-01",
+    "members": [
+      { "relationship": "PRINCIPAL", "sex": "FEMALE", "dateOfBirth": "1995-05-20" },
+      { "relationship": "CHILD", "sex": "MALE", "dateOfBirth": "2020-02-01" }
+    ],
+    "selection": { "INPATIENT": "IP-200K", "MATERNITY": "MAT-60K" },
+    "expected": {
+      "modules": { "INPATIENT": "16000.00", "MATERNITY": "9000.00" },
+      "subtotal": "25000.00", "adjustments": {}, "adjustedSubtotal": "25000.00",
+      "levies": { "LEVY_A": "62.50", "STAMP_DUTY": "50.00" },
+      "annualPremium": "25112.50"
+    }
+  },
+  {
+    "name": "Acacia maternity with no eligible member (male principal, female child)",
+    "plan": "acacia-standard.v1.json", "startDate": "2027-01-01",
+    "members": [
+      { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1980-09-09" },
+      { "relationship": "CHILD", "sex": "FEMALE", "dateOfBirth": "2012-07-07" }
+    ],
+    "selection": { "INPATIENT": "IP-200K", "MATERNITY": "MAT-60K" },
+    "expected": {
+      "modules": { "INPATIENT": "19000.00", "MATERNITY": "0.00" },
+      "subtotal": "19000.00", "adjustments": {}, "adjustedSubtotal": "19000.00",
+      "levies": { "LEVY_A": "47.50", "STAMP_DUTY": "50.00" },
+      "annualPremium": "19097.50"
+    }
+  },
+  {
+    "name": "Acacia maternity with two eligible members (female principal and spouse)",
+    "plan": "acacia-standard.v1.json", "startDate": "2027-01-01",
+    "members": [
+      { "relationship": "PRINCIPAL", "sex": "FEMALE", "dateOfBirth": "1990-03-03" },
+      { "relationship": "SPOUSE", "sex": "FEMALE", "dateOfBirth": "1993-11-11" }
+    ],
+    "selection": { "INPATIENT": "IP-200K", "MATERNITY": "MAT-60K" },
+    "expected": {
+      "modules": { "INPATIENT": "23000.00", "MATERNITY": "18000.00" },
+      "subtotal": "41000.00", "adjustments": {}, "adjustedSubtotal": "41000.00",
+      "levies": { "LEVY_A": "102.50", "STAMP_DUTY": "50.00" },
+      "annualPremium": "41152.50"
+    }
+  },
+  {
+    "name": "Baobab family of three under 45, inpatient and outpatient, online discount",
+    "plan": "baobab-family.v1.json", "startDate": "2027-03-01",
+    "members": [
+      { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1988-04-04" },
+      { "relationship": "SPOUSE", "sex": "FEMALE", "dateOfBirth": "1990-01-01" },
+      { "relationship": "CHILD", "sex": "MALE", "dateOfBirth": "2019-05-05" }
+    ],
+    "selection": { "INPATIENT": "IP-150K", "OUTPATIENT": "OP-35K" },
+    "expected": {
+      "modules": { "INPATIENT": "11000.00", "OUTPATIENT": "19000.00" },
+      "subtotal": "30000.00", "adjustments": { "ONLINE_DISCOUNT": "-1500.00" }, "adjustedSubtotal": "28500.00",
+      "levies": { "LEVY_A": "71.25", "STAMP_DUTY": "50.00" },
+      "annualPremium": "28621.25"
+    }
+  },
+  {
+    "name": "Baobab family of seven, principal 50: three members beyond the largest tier",
+    "plan": "baobab-family.v1.json", "startDate": "2027-03-01",
+    "members": [
+      { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1976-06-01" },
+      { "relationship": "SPOUSE", "sex": "FEMALE", "dateOfBirth": "1978-01-01" },
+      { "relationship": "CHILD", "sex": "FEMALE", "dateOfBirth": "2005-01-01" },
+      { "relationship": "CHILD", "sex": "MALE", "dateOfBirth": "2008-02-02" },
+      { "relationship": "CHILD", "sex": "FEMALE", "dateOfBirth": "2010-03-03" },
+      { "relationship": "CHILD", "sex": "MALE", "dateOfBirth": "2012-04-04" },
+      { "relationship": "CHILD", "sex": "FEMALE", "dateOfBirth": "2015-05-05" }
+    ],
+    "selection": { "INPATIENT": "IP-150K", "OUTPATIENT": "OP-35K" },
+    "expected": {
+      "modules": { "INPATIENT": "19500.00", "OUTPATIENT": "37300.00" },
+      "subtotal": "56800.00", "adjustments": { "ONLINE_DISCOUNT": "-2840.00" }, "adjustedSubtotal": "53960.00",
+      "levies": { "LEVY_A": "134.90", "STAMP_DUTY": "50.00" },
+      "annualPremium": "54144.90"
+    }
+  },
+  {
+    "name": "Baobab principal turns 45 on the start date: the 45-99 table",
+    "plan": "baobab-family.v1.json", "startDate": "2027-03-01",
+    "members": [ { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1982-03-01" } ],
+    "selection": { "INPATIENT": "IP-150K", "OUTPATIENT": "OP-35K" },
+    "expected": {
+      "modules": { "INPATIENT": "5200.00", "OUTPATIENT": "14500.00" },
+      "subtotal": "19700.00", "adjustments": { "ONLINE_DISCOUNT": "-985.00" }, "adjustedSubtotal": "18715.00",
+      "levies": { "LEVY_A": "46.79", "STAMP_DUTY": "50.00" },
+      "annualPremium": "18811.79"
+    }
+  },
+  {
+    "name": "Baobab principal is 44 on the start date: the 0-44 table",
+    "plan": "baobab-family.v1.json", "startDate": "2027-03-01",
+    "members": [ { "relationship": "PRINCIPAL", "sex": "MALE", "dateOfBirth": "1982-03-02" } ],
+    "selection": { "INPATIENT": "IP-150K", "OUTPATIENT": "OP-35K" },
+    "expected": {
+      "modules": { "INPATIENT": "5200.00", "OUTPATIENT": "12000.00" },
+      "subtotal": "17200.00", "adjustments": { "ONLINE_DISCOUNT": "-860.00" }, "adjustedSubtotal": "16340.00",
+      "levies": { "LEVY_A": "40.85", "STAMP_DUTY": "50.00" },
+      "annualPremium": "16430.85"
+    }
+  },
+  {
+    "name": "Baobab family of four, inpatient only: the largest tier exactly",
+    "plan": "baobab-family.v1.json", "startDate": "2027-03-01",
+    "members": [
+      { "relationship": "PRINCIPAL", "sex": "FEMALE", "dateOfBirth": "1990-07-07" },
+      { "relationship": "SPOUSE", "sex": "MALE", "dateOfBirth": "1989-08-08" },
+      { "relationship": "CHILD", "sex": "MALE", "dateOfBirth": "2018-09-09" },
+      { "relationship": "CHILD", "sex": "FEMALE", "dateOfBirth": "2021-10-10" }
+    ],
+    "selection": { "INPATIENT": "IP-150K" },
+    "expected": {
+      "modules": { "INPATIENT": "13200.00" },
+      "subtotal": "13200.00", "adjustments": { "ONLINE_DISCOUNT": "-660.00" }, "adjustedSubtotal": "12540.00",
+      "levies": { "LEVY_A": "31.35", "STAMP_DUTY": "50.00" },
+      "annualPremium": "12621.35"
+    }
+  },
+  {
+    "name": "Baobab family of five, inpatient only: one member beyond the largest tier",
+    "plan": "baobab-family.v1.json", "startDate": "2027-03-01",
+    "members": [
+      { "relationship": "PRINCIPAL", "sex": "FEMALE", "dateOfBirth": "1990-07-07" },
+      { "relationship": "SPOUSE", "sex": "MALE", "dateOfBirth": "1989-08-08" },
+      { "relationship": "CHILD", "sex": "MALE", "dateOfBirth": "2016-09-09" },
+      { "relationship": "CHILD", "sex": "FEMALE", "dateOfBirth": "2018-10-10" },
+      { "relationship": "CHILD", "sex": "MALE", "dateOfBirth": "2021-11-11" }
+    ],
+    "selection": { "INPATIENT": "IP-150K" },
+    "expected": {
+      "modules": { "INPATIENT": "15300.00" },
+      "subtotal": "15300.00", "adjustments": { "ONLINE_DISCOUNT": "-765.00" }, "adjustedSubtotal": "14535.00",
+      "levies": { "LEVY_A": "36.34", "STAMP_DUTY": "50.00" },
+      "annualPremium": "14621.34"
+    }
+  }
+]

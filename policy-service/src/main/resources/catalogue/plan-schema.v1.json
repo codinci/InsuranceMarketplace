@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/insurance/catalogue/plan-schema.v1.json",
+  "title": "Plan document, schema version 1",
+  "description": "Structure of a plan document (PLAN 5, docs/catalogue-schema.md). Semantic rules are checked after this schema passes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "insurer", "product", "plan"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "insurer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "name"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "name": { "$ref": "#/$defs/name" }
+      }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "line", "name"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "line": { "enum": ["HEALTH"] },
+        "name": { "$ref": "#/$defs/name" }
+      }
+    },
+    "plan": { "$ref": "#/$defs/plan" }
+  },
+  "$defs": {
+    "code": { "type": "string", "pattern": "^[A-Z0-9][A-Z0-9_-]{0,39}$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "money": { "type": "number", "minimum": 0 },
+    "positiveMoney": { "type": "number", "exclusiveMinimum": 0 },
+    "age": { "type": "integer", "minimum": 0, "maximum": 120 },
+    "ageRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "$ref": "#/$defs/age" },
+        "max": { "$ref": "#/$defs/age" }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code", "name", "version", "currency", "sale", "ageBasis", "eligibility", "modules",
+        "waitingRules", "exclusions", "claimRules", "cancellation", "adjustments", "levies"
+      ],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "name": { "$ref": "#/$defs/name" },
+        "version": { "type": "integer", "minimum": 1 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "sale": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from"],
+          "properties": {
+            "from": { "$ref": "#/$defs/date" },
+            "to": { "oneOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] }
+          }
+        },
+        "ageBasis": { "enum": ["AT_START", "NEXT_BIRTHDAY"] },
+        "eligibility": { "$ref": "#/$defs/eligibility" },
+        "modules": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/module" } },
+        "waitingRules": { "type": "array", "items": { "$ref": "#/$defs/waitingRule" } },
+        "exclusions": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+        "claimRules": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["filingDeadlineDays"],
+          "properties": { "filingDeadlineDays": { "type": "integer", "minimum": 1 } }
+        },
+        "cancellation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["noticeDays", "refund"],
+          "properties": {
+            "noticeDays": { "type": "integer", "minimum": 0 },
+            "refund": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["model"],
+              "properties": {
+                "model": { "enum": ["PRO_RATA", "NONE"] },
+                "noRefundAfterMonths": { "type": "integer", "minimum": 0 },
+                "noRefundIfClaims": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "adjustments": { "type": "array", "items": { "$ref": "#/$defs/adjustment" } },
+        "levies": { "type": "array", "items": { "$ref": "#/$defs/levy" } }
+      }
+    },
+    "eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coverTypes", "principalAge", "maxChildren"],
+      "properties": {
+        "coverTypes": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "enum": ["INDIVIDUAL", "FAMILY"] }
+        },
+        "principalAge": { "$ref": "#/$defs/ageRange" },
+        "spouseAge": { "$ref": "#/$defs/ageRange" },
+        "childAge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "$ref": "#/$defs/age" },
+            "max": { "$ref": "#/$defs/age" },
+            "maxIfStudent": { "$ref": "#/$defs/age" },
+            "studentEvidenceRequired": { "type": "boolean" }
+          }
+        },
+        "maxChildren": { "type": "integer", "minimum": 0, "maximum": 20 }
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "mandatory", "options"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "mandatory": { "type": "boolean" },
+        "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/option" } }
+      }
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "benefits", "rating"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "benefits": { "$ref": "#/$defs/benefitNode" },
+        "rating": { "$ref": "#/$defs/rating" }
+      }
+    },
+    "benefitNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "kind": { "enum": ["REIMBURSEMENT", "FIXED_SUM"] },
+        "limit": { "$ref": "#/$defs/limit" },
+        "copay": { "$ref": "#/$defs/copay" },
+        "requiredDocuments": {
+          "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/code" }
+        },
+        "preAuthRequired": { "type": "boolean" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/benefitNode" } }
+      }
+    },
+    "limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "period", "scope"],
+      "properties": {
+        "amount": { "$ref": "#/$defs/positiveMoney" },
+        "period": { "enum": ["PER_YEAR", "PER_CLAIM"] },
+        "scope": { "enum": ["SHARED", "PER_MEMBER"] },
+        "maxPerVisit": { "$ref": "#/$defs/positiveMoney" },
+        "maxCount": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "copay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "enum": ["PERCENT", "FIXED_PER_VISIT"] },
+        "value": { "type": "number", "minimum": 0 }
+      },
+      "if": { "properties": { "type": { "const": "PERCENT" } } },
+      "then": { "properties": { "value": { "maximum": 1 } } }
+    },
+    "waitingRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "days", "when"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "days": { "type": "integer", "minimum": 0, "maximum": 3650 },
+        "precedence": { "type": "integer", "minimum": 0 },
+        "when": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cause": { "enum": ["ACCIDENT", "ILLNESS"] },
+            "surgical": { "type": "boolean" },
+            "conditionTags": {
+              "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/code" }
+            },
+            "benefits": {
+              "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/code" }
+            }
+          }
+        }
+      }
+    },
+    "adjustment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "type", "value"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "type": { "enum": ["PERCENT", "FIXED"] },
+        "value": { "type": "number" }
+      },
+      "if": { "properties": { "type": { "const": "PERCENT" } } },
+      "then": { "properties": { "value": { "minimum": -1, "maximum": 1 } } }
+    },
+    "levy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "type", "value"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "type": { "enum": ["PERCENT", "FIXED"] },
+        "value": { "type": "number", "minimum": 0 }
+      },
+      "if": { "properties": { "type": { "const": "PERCENT" } } },
+      "then": { "properties": { "value": { "maximum": 1 } } }
+    },
+    "rating": {
+      "description": "Selected by model. Adding a strategy adds the model to the enum, an if/then entry and a $defs entry (docs/catalogue-schema.md).",
+      "type": "object",
+      "required": ["model"],
+      "properties": {
+        "model": { "enum": ["AGE_BAND_PER_MEMBER", "FAMILY_SIZE_TIER", "FLAT_PER_ELIGIBLE_MEMBER"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "model": { "const": "AGE_BAND_PER_MEMBER" } } },
+          "then": { "$ref": "#/$defs/ageBandRating" }
+        },
+        {
+          "if": { "properties": { "model": { "const": "FAMILY_SIZE_TIER" } } },
+          "then": { "$ref": "#/$defs/familySizeTierRating" }
+        },
+        {
+          "if": { "properties": { "model": { "const": "FLAT_PER_ELIGIBLE_MEMBER" } } },
+          "then": { "$ref": "#/$defs/flatPerEligibleMemberRating" }
+        }
+      ]
+    },
+    "ageBandRating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "ageBands"],
+      "properties": {
+        "model": { "const": "AGE_BAND_PER_MEMBER" },
+        "ageBands": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to", "annual"],
+            "properties": {
+              "from": { "$ref": "#/$defs/age" },
+              "to": { "$ref": "#/$defs/age" },
+              "annual": { "$ref": "#/$defs/money" }
+            }
+          }
+        }
+      }
+    },
+    "familySizeTierRating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "tables"],
+      "properties": {
+        "model": { "const": "FAMILY_SIZE_TIER" },
+        "ageSubject": { "enum": ["PRINCIPAL"] },
+        "tables": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tiers"],
+            "properties": {
+              "age": { "$ref": "#/$defs/ageRange" },
+              "tiers": {
+                "type": "array", "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["members", "annual"],
+                  "properties": {
+                    "members": { "type": "integer", "minimum": 1, "maximum": 30 },
+                    "annual": { "$ref": "#/$defs/money" }
+                  }
+                }
+              },
+              "additionalMemberAnnual": { "$ref": "#/$defs/money" }
+            }
+          }
+        }
+      }
+    },
+    "flatPerEligibleMemberRating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "annual", "eligible"],
+      "properties": {
+        "model": { "const": "FLAT_PER_ELIGIBLE_MEMBER" },
+        "annual": { "$ref": "#/$defs/money" },
+        "eligible": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["relationships"],
+          "properties": {
+            "relationships": {
+              "type": "array", "minItems": 1, "uniqueItems": true,
+              "items": { "enum": ["PRINCIPAL", "SPOUSE", "CHILD"] }
+            },
+            "sex": { "enum": ["FEMALE", "MALE"] }
+          }
+        }
+      }
+    }
+  }
+}
