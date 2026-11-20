@@ -71,6 +71,13 @@ policy-service has two top-level packages, `catalogue` and `policy`. They talk o
 - Constructor injection only.
 - Verify any new dependency exists and is compatible before adding it.
 
+## Public repository hygiene (non-negotiable)
+This repository is public. Anything committed, including docs, ADRs, the runbook, learning notes, comments and test data, is readable by anyone.
+- Never write into a committed file: the owner's machine or workstation details (OS version, hardware, install paths, local user names, which software is installed locally, personal device or network names), names of other projects, or their containers, volumes and ports.
+- Never write real secrets, real credentials, or real personal data. Test fixtures use `example.com` addresses and obviously fake passwords.
+- Describe local setup generically: "a locally installed PostgreSQL may own port 5432", not a statement about a specific machine.
+- Before every commit, review `git diff --cached` for the items above and for any file that must stay local (`PLAN.md`, `.env`, `reference/`). Stage files by path, never with `git add .`.
+
 ## Workflow
 1. One milestone at a time from PLAN.md section 17. Use plan mode for anything non-trivial and show the plan before implementing.
 2. Small commits. G0 and G1 hooks run automatically. Run `./scripts/verify.sh` before saying anything is done.

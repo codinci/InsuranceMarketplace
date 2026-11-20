@@ -20,7 +20,7 @@ Host ports (all bound to 127.0.0.1): Postgres 15432, Kafka 9094 (host listener),
 
 The compose stack needs ports 15432, 8333 and 9094 free. Port 5432 is not used by compose because a locally installed PostgreSQL often already owns it.
 
-A container left over from an earlier run can hold 8333 too. Stop or remove it only after checking that its data is not needed. Old exited containers from the same project show as "orphans" in compose output; leave them unless you want to clean them up, and do not use `--remove-orphans` casually.
+A container left over from an earlier run can hold 8333 too. Find it with `docker ps`, and stop or remove it only after checking that its data is not needed. Old exited containers from the same project show as "orphans" in compose output; leave them unless you want to clean them up, and do not use `--remove-orphans` casually.
 
 ## Check the infrastructure
 
@@ -47,6 +47,38 @@ Reading taken at M0b on a single development machine (`docker stats --no-stream`
 | **Total** | **about 644 MiB** | |
 
 Extrapolation (rough): six Spring services at about 150 MiB each, plus Kafka, Postgres and SeaweedFS, comes to about 1.5 GiB at idle. Real services with JPA and Kafka clients will use more, so budget 2-3 GiB under load. That is well below the 4-4.5 GB estimate in PLAN 15. Recalibrate with the auth-service reading at M1, when the first real service exists.
+
+## Auth-service (M1)
+
+**Signing key (ADR-007).** The service will not start without `AUTH_JWT_PRIVATE_KEY_BASE64` in `.env`. Generate it once and keep it in the password manager as well, because losing it signs every user out:
+
+```bash
+TMPK=$(mktemp)
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$TMPK"
+openssl pkcs8 -topk8 -nocrypt -in "$TMPK" -outform DER | base64 -w0   # paste the one-line result after the = sign
+rm -f "$TMPK"
+```
+
+**First platform admin.** Set `AUTH_SEED_PLATFORM_ADMIN_EMAIL` and `AUTH_SEED_PLATFORM_ADMIN_PASSWORD` (at least 12 characters) before the first start. The account is created only if that email does not exist yet, so restarts never change its password. To change the password, sign in as that admin and use a future password-change endpoint, or stop the service and update the account in the database.
+
+**Check the service:**
+
+```bash
+docker compose --profile full up -d --build auth-service
+curl -s http://localhost:8081/actuator/health
+curl -s http://localhost:8081/.well-known/jwks.json      # the public key, kid "auth-key-1"
+scripts/smoke.sh                                         # register, login, refresh, reuse, staff, JWKS
+```
+
+Swagger UI for auth-service: `http://localhost:8081/swagger-ui/index.html`. The gateway's aggregate Swagger comes at M2.
+
+**Rotate the signing key (overlap, ADR-007):**
+1. Generate a new key (above) and give it a new `AUTH_JWT_KEY_ID`, for example `auth-key-2`.
+2. Publish the old public key for verification only. Its base64 X.509 public key is `openssl pkey -in old.pem -pubout -outform DER | base64 -w0`. Set `AUTH_JWT_ADDITIONAL_PUBLIC_KEYS_0_KEY_ID=auth-key-1` and `AUTH_JWT_ADDITIONAL_PUBLIC_KEYS_0_PUBLIC_KEY_BASE64=<that value>`.
+3. Set the new `AUTH_JWT_PRIVATE_KEY_BASE64` and `AUTH_JWT_KEY_ID`, then restart auth-service.
+4. Wait at least 15 minutes (the access-token lifetime), then remove the overlap variables and restart again.
+
+**Run the auth tests and the contract check:** `./mvnw -pl auth-service -am verify`. The OpenAPI snapshot test compares the generated spec with `docs/openapi/auth-service.json`. When an API change is intended, regenerate it with `OPENAPI_UPDATE=1 ./mvnw -pl auth-service -am verify`, review the diff, and commit the file.
 
 ## Troubleshooting
 

@@ -1,0 +1,495 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "auth-service",
+    "description" : "Identity: users, roles, tokens and JWKS.",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "tags" : [ {
+    "name" : "Auth",
+    "description" : "Registration, login, token refresh and logout for policyholders and staff."
+  }, {
+    "name" : "Keys",
+    "description" : "Public signing keys for verifying access tokens."
+  }, {
+    "name" : "Staff",
+    "description" : "Creating ADJUSTER and ADMIN accounts. Insurer admins are limited to their own insurer."
+  } ],
+  "paths" : {
+    "/api/v1/auth/register" : {
+      "post" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Register a policyholder",
+        "description" : "Creates a CUSTOMER account. Role and insurer are set by the server, never from the request.",
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Account created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Validation failed (code VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Email already registered (code EMAIL_TAKEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh" : {
+      "post" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Rotate tokens",
+        "description" : "Replaces the refresh token. Presenting an already used one revokes the whole login (code REFRESH_TOKEN_REUSED).",
+        "operationId" : "refresh",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "New tokens issued",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Token invalid, expired or reused (INVALID_REFRESH_TOKEN, REFRESH_TOKEN_REUSED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout" : {
+      "post" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Log out",
+        "description" : "Revokes the refresh token's login. Idempotent: an unknown token also returns 204.",
+        "operationId" : "logout",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Logged out"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login" : {
+      "post" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Log in with email and password",
+        "description" : "Returns an access token (15 minutes) and a refresh token (7 days).",
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Logged in",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Validation failed (code VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Wrong email or password (code INVALID_CREDENTIALS)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "423" : {
+            "description" : "Account locked after repeated failures (code ACCOUNT_LOCKED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Too many attempts (code RATE_LIMITED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users" : {
+      "post" : {
+        "tags" : [ "Staff" ],
+        "summary" : "Create a staff account",
+        "description" : "Requires the ADMIN role. An insurer admin can only name their own insurerId; a platform admin (no insurerId) can name any insurer.",
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateStaffRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Staff account created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Validation failed, or an adjuster without insurerId (VALIDATION_FAILED, INSURER_REQUIRED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not an admin, or outside your insurer (FORBIDDEN, INSURER_SCOPE_VIOLATION)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Email already registered (EMAIL_TAKEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/auth/me" : {
+      "get" : {
+        "tags" : [ "Auth" ],
+        "summary" : "The signed-in user",
+        "description" : "Reads the current account from the token's subject.",
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "description" : "The current user",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (code UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/.well-known/jwks.json" : {
+      "get" : {
+        "tags" : [ "Keys" ],
+        "summary" : "JSON Web Key Set",
+        "description" : "The RS256 public keys, identified by kid.",
+        "operationId" : "jwks",
+        "responses" : {
+          "200" : {
+            "description" : "The key set",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "RegisterRequest" : {
+        "type" : "object",
+        "description" : "Self-registration for a policyholder.",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "example" : "ama@example.com",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "password" : {
+            "type" : "string",
+            "description" : "At least 12 and at most 72 characters.",
+            "example" : "correct horse battery",
+            "maxLength" : 72,
+            "minLength" : 12
+          },
+          "firstName" : {
+            "type" : "string",
+            "example" : "Amina",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "lastName" : {
+            "type" : "string",
+            "example" : "Otieno",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email", "firstName", "lastName", "password" ]
+      },
+      "UserSummary" : {
+        "type" : "object",
+        "description" : "A user as the API shows it. Never includes the password hash.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            },
+            "uniqueItems" : true
+          },
+          "insurerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "RefreshRequest" : {
+        "type" : "object",
+        "description" : "A refresh token, used once and replaced by the response.",
+        "properties" : {
+          "refreshToken" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "refreshToken" ]
+      },
+      "TokenResponse" : {
+        "type" : "object",
+        "description" : "A new access token and the refresh token that replaces the previous one.",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "tokenType" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "refreshToken" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LoginRequest" : {
+        "type" : "object",
+        "description" : "Email and password login.",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "example" : "ama@example.com",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "password" : {
+            "type" : "string",
+            "maxLength" : 72,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email", "password" ]
+      },
+      "CreateStaffRequest" : {
+        "type" : "object",
+        "description" : "A staff account for one insurer, or a platform admin when insurerId is null.",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "password" : {
+            "type" : "string",
+            "maxLength" : 72,
+            "minLength" : 12
+          },
+          "firstName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "lastName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "ADJUSTER", "ADMIN" ],
+            "minLength" : 1,
+            "pattern" : "ADJUSTER|ADMIN"
+          },
+          "insurerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "email", "firstName", "lastName", "password", "role" ]
+      }
+    },
+    "securitySchemes" : {
+      "bearerAuth" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT"
+      }
+    }
+  }
+}
