@@ -80,6 +80,27 @@ Swagger UI, aggregated through the gateway (lists the auth-service API): `http:/
 
 **Run the auth tests and the contract check:** `./mvnw -pl auth-service -am verify`. The OpenAPI snapshot test compares the generated spec with `docs/openapi/auth-service.json`. When an API change is intended, regenerate it with `OPENAPI_UPDATE=1 ./mvnw -pl auth-service -am verify`, review the diff, and commit the file.
 
+## Catalogue and onboarding an insurer (M3b)
+
+policy-service seeds two fictional insurers (ACACIA, BAOBAB) with two plans each on start. Browse them without a token:
+
+```bash
+curl -s http://localhost:8080/api/v1/insurers
+curl -s http://localhost:8080/api/v1/insurers/ACACIA/plans
+```
+
+**Onboard an insurer with a plan document** (docs/catalogue-schema.md, "Importing and publishing"). `$TOKEN` is a platform admin's access token from `/api/v1/auth/login`:
+
+1. Write the plan document, with fictional names and figures only. Never copy brochure text into the repository.
+2. Create the insurer: `curl -s -X POST http://localhost:8080/api/v1/admin/insurers -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"code":"NEWCO","name":"New Co"}'`. Note the returned `id`.
+3. Dry run until it passes: `curl -s -X POST "http://localhost:8080/api/v1/admin/insurers/$ID/plans/import?dryRun=true" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @plan.json`. A 422 lists every problem in `errors`.
+4. Import without `dryRun`, then publish: `curl -s -X POST http://localhost:8080/api/v1/admin/plans/$PLAN_ID/publish -H "Authorization: Bearer $TOKEN"`.
+5. Create the insurer's first admin in auth-service (`POST /api/v1/admin/users` with `"role":"ADMIN"` and `"insurerId": "$ID"`). That admin manages the insurer's plans from then on.
+
+To make a plan part of the local seed instead, add it under `policy-service/src/main/resources/catalogue-seed/<insurer>/` together with an expected-premium case in `seed-premiums.json`; the build fails otherwise.
+
+**Change a published plan:** import the same document with the next `version` number and publish it. The old version is retired automatically; its terms never change.
+
 ## Troubleshooting
 
 - **A service shows "unhealthy" or "starting" for a long time:** `docker compose logs <service>`. Kafka and SeaweedFS can take 30-60 seconds on first start.

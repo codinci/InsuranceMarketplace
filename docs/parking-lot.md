@@ -26,3 +26,6 @@ Ideas that are outside the current milestone (CLAUDE.md workflow rule 8, PLAN 21
 | M3a | An empty waiting-rule `when` matches every claim | Follows from D31 (AND of no fields). Decide at M5 whether to keep it as a general waiting period or reject it in the validator. |
 | M3a | The D31 and D32 rules are implemented in two services | Validated in policy-service, applied in claim-service (ADR-002). If the two drift, reconsider a shared library and an ADR. |
 | M3a | The schema `$id` uses an `example.com` placeholder | Replace it if the schema is ever published at a real URL. |
+| M3b | auth-service cannot check that a staff `insurerId` exists in policy-service | A platform admin can create an insurer admin for an id no insurer has; that admin then sees nothing. Close the gap with an insurer event or an internal lookup once inter-service calls exist (M4+). |
+| M3b | Suspending an insurer | `insurers.status` supports `SUSPENDED` and browse hides it, but no endpoint sets it. Add it with the admin hardening (M9) if needed. |
+| M3b | A plan's off-sale but still published state | A published plan whose sale period has ended stays `PUBLISHED` and its terms stay readable at `GET /plans/{id}`. Decide at M4 whether quotes must also check the sale period (they should) and whether such plans should be retired by a job (M8). |

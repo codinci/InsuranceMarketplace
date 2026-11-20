@@ -35,8 +35,8 @@ bash scripts/verify.sh                # the full gate, as CI runs it
 
 ## Auth service (M1) and the gateway (M2)
 
-Clients reach auth-service through the API gateway on `http://localhost:${GATEWAY_HOST_PORT:-8080}` (set `GATEWAY_HOST_PORT` in `.env`). auth-service itself is not published. Swagger UI, aggregated through the gateway: `http://localhost:8080/swagger-ui.html`. auth-service needs `AUTH_JWT_PRIVATE_KEY_BASE64` in `.env`. Generate it as described in [docs/runbook.md](docs/runbook.md), section "Auth-service (M1)". Then run `scripts/smoke.sh` against the running stack.
+Clients reach auth-service through the API gateway on `http://localhost:${GATEWAY_HOST_PORT:-8080}` (set `GATEWAY_HOST_PORT` in `.env`). auth-service and policy-service are not published. The catalogue is public: `GET /api/v1/insurers` lists the seeded fictional insurers. Swagger UI, aggregated through the gateway: `http://localhost:8080/swagger-ui.html`. auth-service needs `AUTH_JWT_PRIVATE_KEY_BASE64` in `.env`. Generate it as described in [docs/runbook.md](docs/runbook.md), section "Auth-service (M1)". Then run `scripts/smoke.sh` against the running stack.
 
 ## Status
 
-Done: M0a (build, quality gates, CI), M0b (local infrastructure, event envelope, correlation IDs), M1 (auth-service) and M2 (API gateway). In progress: M3a, the catalogue model and rating engine in policy-service. Plan documents and their validation rules are described in [docs/catalogue-schema.md](docs/catalogue-schema.md).
+Done: M0a (build, quality gates, CI), M0b (local infrastructure, event envelope, correlation IDs), M1 (auth-service), M2 (API gateway) and M3a (catalogue model and rating engine). In progress: M3b, the catalogue API in policy-service: import, publish and browse, with two fictional insurers seeded. Plan documents, their validation rules and the import API are described in [docs/catalogue-schema.md](docs/catalogue-schema.md).

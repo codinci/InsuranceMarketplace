@@ -158,6 +158,48 @@ A premium that cannot be computed raises `RatingException` with one of these cod
 | `DATE_OF_BIRTH_AFTER_START` | A member is born after the start date |
 | `UNKNOWN_RATING_MODEL`, `RATING_CONFIG_INVALID` | The option's rating cannot be used |
 
+## Importing and publishing
+
+Plans enter the catalogue through the admin API of policy-service (ADR-010), behind the gateway at `/api/v1`.
+
+| Step | Request | Who |
+|---|---|---|
+| Create the insurer | `POST /admin/insurers` with `{ "code", "name" }` | platform admin |
+| Check a document | `POST /admin/insurers/{insurerId}/plans/import?dryRun=true` with the document as the body | admin of that insurer, or platform admin |
+| Store it as a draft | the same request without `dryRun` | same |
+| Put it on sale | `POST /admin/plans/{planId}/publish` | same |
+| Take it off sale | `POST /admin/plans/{planId}/retire` | same |
+| List versions | `GET /admin/plans?status=&insurerId=&page=&size=` | same; `insurerId` filter for the platform admin |
+
+- The document's `insurer.code` must be the code of the insurer in the URL (`INSURER_MISMATCH`).
+- The product is created from the document's `product` block the first time it is seen.
+- Importing a version that exists replaces it while it is `DRAFT` (D34). A published or retired version cannot change; import a new version number.
+- Publishing retires the older published version of the same plan (D33). A plan is on sale when it is `PUBLISHED` and today is inside its `sale` period.
+- Documents are limited to 256 KB.
+- An admin of one insurer gets 404 for another insurer's insurer id or plan ids.
+
+### API error codes
+
+| Code | HTTP | Meaning |
+|---|---|---|
+| `PLAN_INVALID` | 422 | The document failed validation. `errors` lists every violation as `{ code, path, message }`, with the codes above |
+| `INSURER_MISMATCH` | 422 | The document names a different insurer |
+| `PLAN_TOO_LARGE` | 413 | The document is over 256 KB |
+| `PLAN_VERSION_IMMUTABLE` | 409 | That version is published or retired |
+| `PLAN_NOT_DRAFT` | 409 | Only a draft can be published |
+| `NEWER_VERSION_PUBLISHED` | 409 | A newer version of this plan is already published |
+| `PLAN_NOT_PUBLISHED` | 409 | Only a published plan can be retired |
+| `INSURER_CODE_TAKEN` | 409 | An insurer with that code exists |
+| `CONFLICT` | 409 | Two requests changed the same plan at once; retry |
+| `INSURER_NOT_FOUND`, `PLAN_NOT_FOUND` | 404 | No such insurer or plan, or it belongs to another insurer |
+| `PLATFORM_ADMIN_REQUIRED` | 403 | Only a platform admin can create insurers |
+| `FORBIDDEN`, `UNAUTHENTICATED` | 403, 401 | Not an admin, or no valid token |
+| `VALIDATION_FAILED` | 400 | Bad paging, filter, id or request body |
+
+### Seed files
+
+`policy-service/src/main/resources/catalogue-seed/<insurer>/<plan>.v<version>.json`. With `catalogue.seed.enabled=true` (compose), policy-service imports and publishes every seed file at startup, creating the insurer from the document's `insurer` block, and skips versions that already exist. The build validates every seed file and prices each one against a hand-computed expected premium in `policy-service/src/test/resources/catalogue/seed-premiums.json` (`SeedFilesTest`).
+
 ## Adding a rating strategy
 
 Only when a plan needs pricing that the three strategies cannot express (PLAN 5.4 step 5):
