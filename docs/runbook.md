@@ -101,6 +101,19 @@ To make a plan part of the local seed instead, add it under `policy-service/src/
 
 **Change a published plan:** import the same document with the next `version` number and publish it. The old version is retired automatically; its terms never change.
 
+## Policies and the field encryption key (M4a)
+
+policy-service encrypts the national ID with a key from `.env` (D37, ADR-012) and refuses to start without it. Generate one per environment and never commit it:
+
+```bash
+echo "POLICY_FIELD_KEY_BASE64=$(openssl rand -base64 32)" >> .env
+echo "POLICY_FIELD_KEY_ID=policy-key-1" >> .env
+```
+
+Keep the key with the data: losing it makes the stored national IDs unreadable. Changing it needs a rotation (ADR-012), not a simple replacement.
+
+Buying a policy locally (`$TOKEN` is a customer's access token): `PUT /api/v1/me/profile`, then `POST /api/v1/quotes` with a plan id from `GET /api/v1/insurers/ACACIA/plans`, then `POST /api/v1/policies` with the quote id. `scripts/smoke.sh` runs this flow. The policy stays `PENDING_PAYMENT` until payment arrives in M4b.
+
 ## Troubleshooting
 
 - **A service shows "unhealthy" or "starting" for a long time:** `docker compose logs <service>`. Kafka and SeaweedFS can take 30-60 seconds on first start.

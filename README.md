@@ -39,4 +39,4 @@ Clients reach auth-service through the API gateway on `http://localhost:${GATEWA
 
 ## Status
 
-Done: M0a (build, quality gates, CI), M0b (local infrastructure, event envelope, correlation IDs), M1 (auth-service), M2 (API gateway) and M3a (catalogue model and rating engine). In progress: M3b, the catalogue API in policy-service: import, publish and browse, with two fictional insurers seeded. Plan documents, their validation rules and the import API are described in [docs/catalogue-schema.md](docs/catalogue-schema.md).
+Done: M0a (build, quality gates, CI), M0b (local infrastructure, event envelope, correlation IDs), M1 (auth-service), M2 (API gateway), M3a (catalogue model and rating engine) and M3b (catalogue API, seeds). In progress: M4a, profiles, quotes and buying a policy (to PENDING_PAYMENT; payment comes in M4b). policy-service needs `POLICY_FIELD_KEY_BASE64` in `.env` (see docs/runbook.md). Plan documents, their validation rules and the import API are described in [docs/catalogue-schema.md](docs/catalogue-schema.md).

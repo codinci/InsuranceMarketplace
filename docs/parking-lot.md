@@ -29,3 +29,8 @@ Ideas that are outside the current milestone (CLAUDE.md workflow rule 8, PLAN 21
 | M3b | auth-service cannot check that a staff `insurerId` exists in policy-service | A platform admin can create an insurer admin for an id no insurer has; that admin then sees nothing. Close the gap with an insurer event or an internal lookup once inter-service calls exist (M4+). |
 | M3b | Suspending an insurer | `insurers.status` supports `SUSPENDED` and browse hides it, but no endpoint sets it. Add it with the admin hardening (M9) if needed. |
 | M3b | A plan's off-sale but still published state | A published plan whose sale period has ended stays `PUBLISHED` and its terms stay readable at `GET /plans/{id}`. Decide at M4 whether quotes must also check the sale period (they should) and whether such plans should be retired by a job (M8). |
+| M4a | The policy holder has no email | Access tokens carry no email claim and auth-service owns the address. Notifications (M8) can take it from `UserRegistered` or an auth lookup. Add an `email` claim only through an ADR-006 change. |
+| M4a | Searching by national ID | It is encrypted with a random nonce, so SQL cannot match it. Add an HMAC column if duplicate detection is needed (ADR-012). |
+| M4a | Key rotation for field encryption | Only one key is configured. Rotation needs a key map and a re-encryption job (ADR-012). |
+| M4a | Old OPEN quotes are never cleaned up | Expiry is computed on read. A cleanup job belongs with the lifecycle jobs (M8). |
+| M4a | A customer can buy several policies for the same members | Not refused today. Decide whether overlapping cover with the same insurer should be blocked (M9 business rules). |

@@ -127,6 +127,22 @@ Each option has a `rating` object whose `model` selects a strategy. All amounts 
 | `FLAT_RATING_NO_ELIGIBLE_RELATIONSHIP` | flat | No listed relationship can exist on the plan (for example SPOUSE on an individual-only plan) |
 | `AGE_RANGE_INVALID` | all | A band or table age range starts after it ends |
 
+## Eligibility
+
+Checked when a quote is created (M4a, `EligibilityChecker`). Ages are rating ages in the plan's age basis on the cover start date. Every problem is reported, each with the member's index in the request, or none when it concerns the whole group.
+
+| Code | Meaning |
+|---|---|
+| `COVER_TYPE_NOT_OFFERED` | The plan does not sell this cover type |
+| `PRINCIPAL_REQUIRED` | There is not exactly one principal |
+| `INDIVIDUAL_COVER_HAS_DEPENDANTS` | Individual cover with a spouse or child |
+| `TOO_MANY_SPOUSES` | More than one spouse |
+| `TOO_MANY_CHILDREN` | More children than `maxChildren` |
+| `STUDENT_ONLY_FOR_CHILDREN` | The student flag on a principal or spouse |
+| `AGE_NOT_ELIGIBLE` | The member's rating age is outside their range. A child above `childAge.max` passes only as a student up to `maxIfStudent`; a plan without `childAge` covers no children |
+
+The quote API returns these in `errors` with code `NOT_ELIGIBLE` (HTTP 422).
+
 ## Violation codes
 
 | Code | Layer | Meaning |
