@@ -27,6 +27,7 @@ class CatalogueApiIT extends AbstractPolicyIT {
 
   private static final String ACACIA = "acacia-standard.v1.json";
   private static final LocalDate START = LocalDate.of(2027, 1, 1);
+  private static final LocalDate TODAY = LocalDate.now(java.time.ZoneId.of("Africa/Nairobi"));
   private static final List<MemberInput> FAMILY =
       List.of(
           new MemberInput(Relationship.PRINCIPAL, Sex.MALE, LocalDate.of(1990, 6, 15), false),
@@ -50,12 +51,11 @@ class CatalogueApiIT extends AbstractPolicyIT {
 
   @Test
   void aPublishedPlanIsOnSaleAndADraftIsNot() throws Exception {
-    assertThat(catalogue.planOnSale(planId, LocalDate.now())).isPresent();
-    assertThat(catalogue.planOnSale(planId, LocalDate.now()).orElseThrow().insurerCode())
-        .isEqualTo(code);
+    assertThat(catalogue.planOnSale(planId, TODAY)).isPresent();
+    assertThat(catalogue.planOnSale(planId, TODAY).orElseThrow().insurerCode()).isEqualTo(code);
     UUID draft = importDraft(insurerId, planJson(ACACIA, code, version(2)));
-    assertThat(catalogue.planOnSale(draft, LocalDate.now())).isEmpty();
-    assertThat(catalogue.planOnSale(UUID.randomUUID(), LocalDate.now())).isEmpty();
+    assertThat(catalogue.planOnSale(draft, TODAY)).isEmpty();
+    assertThat(catalogue.planOnSale(UUID.randomUUID(), TODAY)).isEmpty();
   }
 
   @Test
@@ -109,7 +109,7 @@ class CatalogueApiIT extends AbstractPolicyIT {
   @Test
   void aRetiredVersionCanStillBeSnapshotted() throws Exception {
     planAction(TestTokens.platformAdmin(), planId, "retire");
-    assertThat(catalogue.planOnSale(planId, LocalDate.now())).isEmpty();
+    assertThat(catalogue.planOnSale(planId, TODAY)).isEmpty();
     assertThat(catalogue.termsSnapshot(planId, IP_AND_OP).modules()).hasSize(2);
   }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end smoke test of the running stack through the API gateway (PLAN 18). Covers auth-service (M1), the gateway (M2)
-# and the catalogue in policy-service (M3b).
+# the catalogue in policy-service (M3b) and buying a policy up to PENDING_PAYMENT (M4a).
 # Later milestones add steps. Usage: scripts/smoke.sh [base-url]   (default: the gateway's host port from .env, or 8080)
 # Needs the seeded admin in .env (AUTH_SEED_PLATFORM_ADMIN_EMAIL and _PASSWORD). Exits non-zero on the first failure.
 set -euo pipefail
@@ -143,5 +143,38 @@ OTHER_TOKEN=$(field "$(call 200 "$BASE/api/v1/auth/login" -H "$JSON" \
   -d "{\"email\":\"$OTHER_EMAIL\",\"password\":\"a-long-enough-password\"}")" accessToken)
 call 404 "$BASE/api/v1/admin/plans/$NEW_PLAN/retire" -X POST -H "Authorization: Bearer $OTHER_TOKEN" \
   | grep -q '"PLAN_NOT_FOUND"' && echo "another insurer's admin gets 404"
+
+step "policies: a customer creates a profile, gets a quote and buys a policy"
+BUYER_EMAIL="smoke.buyer.$(date +%s)@example.com"
+call 201 "$BASE/api/v1/auth/register" -H "$JSON" \
+  -d "{\"email\":\"$BUYER_EMAIL\",\"password\":\"a-long-enough-password\",\"firstName\":\"Smoke\",\"lastName\":\"Buyer\"}" > /dev/null
+BUYER=$(field "$(call 200 "$BASE/api/v1/auth/login" -H "$JSON" \
+  -d "{\"email\":\"$BUYER_EMAIL\",\"password\":\"a-long-enough-password\"}")" accessToken)
+call 200 "$BASE/api/v1/me/profile" -X PUT -H "$JSON" -H "Authorization: Bearer $BUYER" \
+  -d '{"firstName":"Smoke","lastName":"Buyer","dateOfBirth":"1990-06-15","sex":"FEMALE","nationalId":"SMOKE1234","phone":"+254700000000"}' \
+  | grep -q '"nationalIdMasked":"\*\*\*234"' && echo "profile saved, national ID masked"
+STANDARD=$(call 200 "$BASE/api/v1/insurers/ACACIA/plans" \
+  | grep -o '"id":"[^"]*","insurerCode":"ACACIA","productCode":"[^"]*","productName":"[^"]*","code":"STANDARD"' | cut -d'"' -f4)
+START=$(date -u -d '+10 days' +%F)
+QUOTE=$(call 201 "$BASE/api/v1/quotes" -H "$JSON" -H "Authorization: Bearer $BUYER" \
+  -d "{\"planId\":\"$STANDARD\",\"coverType\":\"INDIVIDUAL\",\"startDate\":\"$START\",\"members\":[{\"relationship\":\"PRINCIPAL\",\"sex\":\"FEMALE\",\"dateOfBirth\":\"1990-06-15\",\"student\":false}],\"selectedModules\":{\"INPATIENT\":\"IP-200K\"}}")
+QUOTE_ID=$(field "$QUOTE" id)
+printf '%s' "$QUOTE" | grep -q '"annualPremium"' && echo "quote priced by the server"
+POLICY=$(call 201 "$BASE/api/v1/policies" -H "$JSON" -H "Authorization: Bearer $BUYER" \
+  -d "{\"quoteId\":\"$QUOTE_ID\",\"members\":[{\"relationship\":\"PRINCIPAL\",\"sex\":\"FEMALE\",\"dateOfBirth\":\"1990-06-15\",\"student\":false,\"firstName\":\"Smoke\",\"lastName\":\"Buyer\"}],\"declaration\":{\"preExistingConditions\":false,\"accepted\":true}}")
+POLICY_ID=$(field "$POLICY" id)
+printf '%s' "$POLICY" | grep -q '"status":"PENDING_PAYMENT"' && printf '%s' "$POLICY" | grep -q '"policyNumber":"POL-ACACIA-' \
+  && echo "policy $(field "$POLICY" policyNumber) awaits payment" || { echo "FAILED: unexpected policy: $POLICY" >&2; exit 1; }
+
+step "policies: another customer cannot see it, and staff cannot use customer endpoints"
+call 403 "$BASE/api/v1/policies/$POLICY_ID" -H "Authorization: Bearer $OTHER_TOKEN" \
+  | grep -q '"FORBIDDEN"' && echo "an insurer admin gets 403"
+OTHER_BUYER_EMAIL="smoke.other.$(date +%s)@example.com"
+call 201 "$BASE/api/v1/auth/register" -H "$JSON" \
+  -d "{\"email\":\"$OTHER_BUYER_EMAIL\",\"password\":\"a-long-enough-password\",\"firstName\":\"Other\",\"lastName\":\"Buyer\"}" > /dev/null
+OTHER_BUYER=$(field "$(call 200 "$BASE/api/v1/auth/login" -H "$JSON" \
+  -d "{\"email\":\"$OTHER_BUYER_EMAIL\",\"password\":\"a-long-enough-password\"}")" accessToken)
+call 404 "$BASE/api/v1/policies/$POLICY_ID" -H "Authorization: Bearer $OTHER_BUYER" \
+  | grep -q '"POLICY_NOT_FOUND"' && echo "another customer gets 404"
 
 printf '\nsmoke.sh: all steps passed\n'

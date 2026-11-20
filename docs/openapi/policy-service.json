@@ -13,11 +13,17 @@
     "name" : "Profile",
     "description" : "The calling customer's own policy-holder details."
   }, {
+    "name" : "Quotes",
+    "description" : "Server-priced quotes, valid for 30 days. CUSTOMER only."
+  }, {
     "name" : "Catalogue",
     "description" : "Browse insurers and plans. Public: no token needed (PLAN 4)."
   }, {
     "name" : "Catalogue admin",
     "description" : "Insurers and plan import. Insurer admins act only on their own insurer."
+  }, {
+    "name" : "Policies",
+    "description" : "Buying and viewing my policies. CUSTOMER only."
   } ],
   "paths" : {
     "/api/v1/me/profile" : {
@@ -124,6 +130,255 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/quotes" : {
+      "post" : {
+        "tags" : [ "Quotes" ],
+        "summary" : "Get a quote",
+        "description" : "Checks the start date (tomorrow up to 60 days), the plan, eligibility and the module selection, then prices on the server.",
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/QuoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "The quote",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such plan on sale (PLAN_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "START_DATE_OUT_OF_RANGE, NOT_ELIGIBLE or MODULE_SELECTION_INVALID, with details in errors",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/policies" : {
+      "get" : {
+        "tags" : [ "Policies" ],
+        "summary" : "List my policies",
+        "description" : "Newest first.",
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of policies",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicySummary"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad paging (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicySummary"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicySummary"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicySummary"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "Policies" ],
+        "summary" : "Buy a policy from a quote",
+        "description" : "Creates the policy as PENDING_PAYMENT with the quoted premium and the plan's terms frozen. Payment comes next (M4b).",
+        "operationId" : "purchase",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PurchaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "The new policy",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such quote of yours (QUOTE_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "PROFILE_REQUIRED, QUOTE_NOT_OPEN, QUOTE_EXPIRED or CONFLICT",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "START_DATE_OUT_OF_RANGE, MEMBERS_DIFFER_FROM_QUOTE, PRINCIPAL_NOT_HOLDER or DECLARATION_REQUIRED",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
                 }
               }
             }
@@ -283,7 +538,7 @@
         "tags" : [ "Catalogue admin" ],
         "summary" : "Create an insurer",
         "description" : "Platform admin only (PLAN 4).",
-        "operationId" : "create",
+        "operationId" : "create_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -463,6 +718,130 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/quotes/{quoteId}" : {
+      "get" : {
+        "tags" : [ "Quotes" ],
+        "summary" : "Get one of my quotes",
+        "description" : "Status is OPEN, USED or EXPIRED.",
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "name" : "quoteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The quote",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such quote of yours (QUOTE_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/policies/{policyId}" : {
+      "get" : {
+        "tags" : [ "Policies" ],
+        "summary" : "Get one of my policies",
+        "description" : "With members, member numbers, the premium breakdown and the frozen terms.",
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "name" : "policyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The policy",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such policy of yours (POLICY_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
                 }
               }
             }
@@ -653,7 +1032,7 @@
         "tags" : [ "Catalogue admin" ],
         "summary" : "List plan versions",
         "description" : "Newest first. An insurer admin sees only their own insurer; a platform admin may filter by insurerId.",
-        "operationId" : "list",
+        "operationId" : "list_1",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -823,6 +1202,537 @@
           }
         }
       },
+      "QuoteMemberRequest" : {
+        "type" : "object",
+        "description" : "A member to cover. Names are added at purchase.",
+        "properties" : {
+          "relationship" : {
+            "type" : "string",
+            "enum" : [ "PRINCIPAL", "SPOUSE", "CHILD" ]
+          },
+          "sex" : {
+            "type" : "string",
+            "enum" : [ "FEMALE", "MALE" ]
+          },
+          "dateOfBirth" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "1990-06-15"
+          },
+          "student" : {
+            "type" : "boolean",
+            "description" : "Only for children over the plan's child age (student exception)."
+          }
+        },
+        "required" : [ "dateOfBirth", "relationship", "sex" ]
+      },
+      "QuoteRequest" : {
+        "type" : "object",
+        "description" : "What to quote. The server computes the premium; no amount is accepted.",
+        "properties" : {
+          "planId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "A plan on sale, from GET /insurers/{code}/plans."
+          },
+          "coverType" : {
+            "type" : "string",
+            "enum" : [ "INDIVIDUAL", "FAMILY" ]
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "From tomorrow up to 60 days ahead (D35)."
+          },
+          "members" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QuoteMemberRequest"
+            },
+            "maxItems" : 12,
+            "minItems" : 0
+          },
+          "selectedModules" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Module code to option code. Mandatory modules must be included.",
+            "example" : {
+              "INPATIENT" : "IP-200K",
+              "OUTPATIENT" : "OP-40K"
+            },
+            "minProperties" : 1
+          }
+        },
+        "required" : [ "coverType", "members", "planId", "selectedModules", "startDate" ]
+      },
+      "ChargeLine" : {
+        "type" : "object",
+        "description" : "One adjustment or levy.",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          }
+        }
+      },
+      "ModuleLine" : {
+        "type" : "object",
+        "description" : "The premium of one selected module option.",
+        "properties" : {
+          "module" : {
+            "type" : "string"
+          },
+          "option" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          }
+        }
+      },
+      "PremiumView" : {
+        "type" : "object",
+        "description" : "A premium and how it was built. Every line is rounded to cents.",
+        "properties" : {
+          "modules" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ModuleLine"
+            }
+          },
+          "subtotal" : {
+            "type" : "number"
+          },
+          "adjustments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChargeLine"
+            }
+          },
+          "adjustedSubtotal" : {
+            "type" : "number"
+          },
+          "levies" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChargeLine"
+            }
+          },
+          "annualPremium" : {
+            "type" : "number",
+            "example" : 50175.0
+          },
+          "currency" : {
+            "type" : "string",
+            "example" : "KES"
+          }
+        }
+      },
+      "QuoteResponse" : {
+        "type" : "object",
+        "description" : "A server-priced quote.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "planId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "insurerCode" : {
+            "type" : "string",
+            "example" : "ACACIA"
+          },
+          "planCode" : {
+            "type" : "string",
+            "example" : "STANDARD"
+          },
+          "planVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "coverType" : {
+            "type" : "string",
+            "enum" : [ "INDIVIDUAL", "FAMILY" ]
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "members" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QuoteMemberRequest"
+            }
+          },
+          "selectedModules" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "premium" : {
+            "$ref" : "#/components/schemas/PremiumView"
+          },
+          "validUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "OPEN, USED or EXPIRED.",
+            "example" : "OPEN"
+          }
+        }
+      },
+      "DeclarationRequest" : {
+        "type" : "object",
+        "description" : "The health declaration (D5): no underwriting, waiting rules apply.",
+        "properties" : {
+          "preExistingConditions" : {
+            "type" : "boolean",
+            "description" : "Whether any member has a pre-existing condition."
+          },
+          "accepted" : {
+            "type" : "boolean",
+            "description" : "Must be true: the customer accepts the terms."
+          }
+        },
+        "required" : [ "preExistingConditions" ]
+      },
+      "PurchaseMemberRequest" : {
+        "type" : "object",
+        "description" : "A quoted member with their name. The quoted fields must not change (D36).",
+        "properties" : {
+          "relationship" : {
+            "type" : "string",
+            "enum" : [ "PRINCIPAL", "SPOUSE", "CHILD" ]
+          },
+          "sex" : {
+            "type" : "string",
+            "enum" : [ "FEMALE", "MALE" ]
+          },
+          "dateOfBirth" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "student" : {
+            "type" : "boolean"
+          },
+          "firstName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "lastName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "dateOfBirth", "firstName", "lastName", "relationship", "sex" ]
+      },
+      "PurchaseRequest" : {
+        "type" : "object",
+        "description" : "Buy a policy from an open quote.",
+        "properties" : {
+          "quoteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "members" : {
+            "type" : "array",
+            "description" : "The quoted members, in the quoted order, with names.",
+            "items" : {
+              "$ref" : "#/components/schemas/PurchaseMemberRequest"
+            },
+            "maxItems" : 12,
+            "minItems" : 0
+          },
+          "declaration" : {
+            "$ref" : "#/components/schemas/DeclarationRequest"
+          }
+        },
+        "required" : [ "declaration", "members", "quoteId" ]
+      },
+      "BenefitTerms" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "limit" : {
+            "$ref" : "#/components/schemas/LimitTerms"
+          },
+          "copay" : {
+            "$ref" : "#/components/schemas/CopayTerms"
+          },
+          "requiredDocuments" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "preAuthRequired" : {
+            "type" : "boolean"
+          },
+          "children" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BenefitTerms"
+            }
+          }
+        }
+      },
+      "CancellationTerms" : {
+        "type" : "object",
+        "properties" : {
+          "noticeDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "refundModel" : {
+            "type" : "string"
+          },
+          "noRefundAfterMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "noRefundIfClaims" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "CopayTerms" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        }
+      },
+      "LimitTerms" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "period" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "maxPerVisit" : {
+            "type" : "number"
+          },
+          "maxCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ModuleTerms" : {
+        "type" : "object",
+        "properties" : {
+          "module" : {
+            "type" : "string"
+          },
+          "option" : {
+            "type" : "string"
+          },
+          "benefits" : {
+            "$ref" : "#/components/schemas/BenefitTerms"
+          }
+        }
+      },
+      "PolicyMemberView" : {
+        "type" : "object",
+        "description" : "A covered member.",
+        "properties" : {
+          "memberNumber" : {
+            "type" : "string",
+            "example" : "ACA-000123-01"
+          },
+          "relationship" : {
+            "type" : "string",
+            "enum" : [ "PRINCIPAL", "SPOUSE", "CHILD" ]
+          },
+          "sex" : {
+            "type" : "string",
+            "enum" : [ "FEMALE", "MALE" ]
+          },
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "dateOfBirth" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "student" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PolicyResponse" : {
+        "type" : "object",
+        "description" : "A policy with its members and the terms it was sold with.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "policyNumber" : {
+            "type" : "string",
+            "example" : "POL-ACACIA-2026-000123"
+          },
+          "status" : {
+            "type" : "string",
+            "example" : "PENDING_PAYMENT"
+          },
+          "insurerCode" : {
+            "type" : "string"
+          },
+          "planId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "planCode" : {
+            "type" : "string"
+          },
+          "planVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "coverType" : {
+            "type" : "string",
+            "enum" : [ "INDIVIDUAL", "FAMILY" ]
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "endDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "premium" : {
+            "$ref" : "#/components/schemas/PremiumView"
+          },
+          "members" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyMemberView"
+            }
+          },
+          "termsSnapshot" : {
+            "$ref" : "#/components/schemas/TermsSnapshot",
+            "description" : "Frozen at purchase (ADR-011)."
+          }
+        }
+      },
+      "TermsSnapshot" : {
+        "type" : "object",
+        "properties" : {
+          "snapshotVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "insurerCode" : {
+            "type" : "string"
+          },
+          "planId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "planCode" : {
+            "type" : "string"
+          },
+          "planVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "ageBasis" : {
+            "type" : "string"
+          },
+          "modules" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ModuleTerms"
+            }
+          },
+          "waitingRules" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WaitingRuleTerms"
+            }
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "filingDeadlineDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cancellation" : {
+            "$ref" : "#/components/schemas/CancellationTerms"
+          }
+        }
+      },
+      "WaitingRuleTerms" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "precedence" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cause" : {
+            "type" : "string"
+          },
+          "surgical" : {
+            "type" : "boolean"
+          },
+          "conditionTags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "benefits" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "AdminPlanResponse" : {
         "type" : "object",
         "description" : "A plan version as staff see it.",
@@ -941,6 +1851,81 @@
           "plan" : {
             "$ref" : "#/components/schemas/AdminPlanResponse",
             "description" : "The stored plan version; null for a dry run."
+          }
+        }
+      },
+      "PageResponsePolicySummary" : {
+        "type" : "object",
+        "description" : "One page of results.",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "description" : "The items on this page.",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicySummary"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page number, starting at 0.",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Requested page size.",
+            "example" : 20
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Items across all pages.",
+            "example" : 42
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of pages.",
+            "example" : 3
+          }
+        }
+      },
+      "PolicySummary" : {
+        "type" : "object",
+        "description" : "A policy in a list.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "policyNumber" : {
+            "type" : "string",
+            "example" : "POL-ACACIA-2026-000123"
+          },
+          "status" : {
+            "type" : "string",
+            "example" : "PENDING_PAYMENT"
+          },
+          "insurerCode" : {
+            "type" : "string"
+          },
+          "planCode" : {
+            "type" : "string"
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "endDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "annualPremium" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
           }
         }
       },

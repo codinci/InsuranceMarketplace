@@ -1,4 +1,4 @@
-package com.example.insurance.policyservice.catalogue.dto;
+package com.example.insurance.policyservice.web;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;

@@ -193,6 +193,9 @@ services:
       # Access tokens are checked against auth-service's published keys, fetched on the first request.
       POLICY_JWT_JWK_SET_URI: http://auth-service:8080/.well-known/jwks.json
       CATALOGUE_SEED_ENABLED: "true"
+      # Encrypts personal data such as the national ID (D37, ADR-012). Without it the service refuses to start.
+      POLICY_FIELD_KEY_BASE64: ${POLICY_FIELD_KEY_BASE64}
+      POLICY_FIELD_KEY_ID: ${POLICY_FIELD_KEY_ID}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
       interval: 10s

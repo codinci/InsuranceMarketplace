@@ -1,9 +1,9 @@
 package com.example.insurance.policyservice.catalogue.controller;
 
 import com.example.insurance.policyservice.catalogue.dto.AdminPlanResponse;
-import com.example.insurance.policyservice.catalogue.dto.PageResponse;
 import com.example.insurance.policyservice.catalogue.service.PlanLifecycleService;
 import com.example.insurance.policyservice.catalogue.service.StaffScope;
+import com.example.insurance.policyservice.web.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

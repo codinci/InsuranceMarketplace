@@ -6,15 +6,15 @@ import com.example.insurance.policyservice.catalogue.domain.InsurerStatus;
 import com.example.insurance.policyservice.catalogue.domain.PlanStatus;
 import com.example.insurance.policyservice.catalogue.domain.PlanVersion;
 import com.example.insurance.policyservice.catalogue.dto.InsurerResponse;
-import com.example.insurance.policyservice.catalogue.dto.PageResponse;
 import com.example.insurance.policyservice.catalogue.dto.PlanDetailResponse;
 import com.example.insurance.policyservice.catalogue.dto.PlanSummaryResponse;
 import com.example.insurance.policyservice.catalogue.repository.InsuranceProductRepository;
 import com.example.insurance.policyservice.catalogue.repository.InsurerRepository;
 import com.example.insurance.policyservice.catalogue.repository.PlanVersionRepository;
+import com.example.insurance.policyservice.config.BusinessCalendar;
 import com.example.insurance.policyservice.exception.ApiException;
 import com.example.insurance.policyservice.exception.ErrorCode;
-import java.time.Clock;
+import com.example.insurance.policyservice.web.PageResponse;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -32,19 +32,19 @@ public class CatalogueBrowseService {
   private final InsuranceProductRepository products;
   private final PlanVersionRepository plans;
   private final StoredPlans stored;
-  private final Clock clock;
+  private final BusinessCalendar calendar;
 
   public CatalogueBrowseService(
       InsurerRepository insurers,
       InsuranceProductRepository products,
       PlanVersionRepository plans,
       StoredPlans stored,
-      Clock clock) {
+      BusinessCalendar calendar) {
     this.insurers = insurers;
     this.products = products;
     this.plans = plans;
     this.stored = stored;
-    this.clock = clock;
+    this.calendar = calendar;
   }
 
   @Transactional(readOnly = true)
@@ -60,7 +60,7 @@ public class CatalogueBrowseService {
             .findByCode(insurerCode)
             .filter(i -> i.getStatus() == InsurerStatus.ACTIVE)
             .orElseThrow(() -> new ApiException(ErrorCode.INSURER_NOT_FOUND, "No such insurer."));
-    LocalDate today = LocalDate.now(clock);
+    LocalDate today = calendar.today();
     return PageResponse.of(
         plans.findOnSale(insurer.getId(), today, pageable),
         plan -> PlanViews.summary(plan, stored.document(plan).plan(), insurer, product(plan)));

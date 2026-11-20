@@ -30,6 +30,11 @@ public class ApiExceptionHandler {
     return problem(ex.code(), ex.getMessage(), errors);
   }
 
+  @ExceptionHandler(ApiErrorsException.class)
+  ResponseEntity<ProblemDetail> handleApiErrors(ApiErrorsException ex) {
+    return Problems.response(ex.code().status(), ex.code().name(), ex.getMessage(), ex.errors());
+  }
+
   @ExceptionHandler(ApiException.class)
   ResponseEntity<ProblemDetail> handleApi(ApiException ex) {
     return problem(ex.code(), ex.getMessage(), null);
