@@ -42,3 +42,7 @@
 3. The incident is ten days before cover starts. Which check fails, which others still run, and why is the reason `POLICY_IN_FORCE` rather than `WAITING_PERIOD_ELAPSED`?
 4. Why is the claim number taken from a sequence instead of counting the claims for the year?
 5. A customer uploads a file named `receipt.pdf` whose bytes start with `%PNG`. Which check refuses it, and why does the declared type not decide the outcome?
+
+## Corrected answers
+
+**1.** `ClaimSubmitted` is published only for a claim that passes the hard checks and enters review, so a consumer can treat it as "this claim is now in the workflow". A claim rejected at submission never enters that workflow, so nothing is published for it. In M5b a consumer learns that outcome only by reading the claim (`GET /api/v1/claims/{id}`, with its checks and `rejectionReason`) and its history. The intended way to push an outcome is a separate event through the outbox, such as `ClaimRejected`, but that event does not exist yet: it is parked for M6 (ADR-016, `docs/parking-lot.md`).
