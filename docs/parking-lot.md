@@ -43,6 +43,8 @@ Ideas that are outside the current milestone (CLAUDE.md workflow rule 8, PLAN 21
 | M5b | Orphaned document objects | A failed database write after an upload leaves an object nothing points at. The lifecycle job (M8) removes them (ADR-016). |
 | M5b | Terms exclusions are not checked at submission | The snapshot carries exclusions as strings, but no hard check reads them yet. Decide the mapping with adjudication (M6). |
 | M5b | `preAuthRequired` is stored only | As PLAN 2 says; no check or flag uses it. |
+| M5b | Double-submit has no concurrency test | Two parallel submits of one draft are stopped by the `@Version` column and the state check, but no test runs them in parallel. Agreed 2026-11-22 for the hardening milestone (M9): exactly one submit succeeds, the other gets 409, and one `ClaimSubmitted` outbox row is written. |
+| M5b | Raise the module line-coverage floor from 70% to 85% | Agreed 2026-11-22 for the hardening milestone (M9), by ADR. It revises earlier modules' tests: common-messaging is lowest at 86.8% and needs margin; every other module is above 93%. |
 | M5b | Per-package coverage gates are not in the POM | CLAUDE asks 90% line and 85% branch on `rules` and `statemachine`. Only the 70% bundle rule is enforced today; add the package rules once the numbers are measured in CI. |
 | M5b | No `ClaimRejected` event | Rejections at submission are visible on the claim only (ADR-016). Add the event with M6 review, if the notification service needs it. |
 | M5b | Soft flags and review states | `FLAG`, `UNDER_REVIEW`, `INFO_REQUESTED` and the payout states are in the machine but not reached yet (M6, M7). |
