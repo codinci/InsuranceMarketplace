@@ -25,7 +25,7 @@ class RedisOutageIT {
           .withCommand("redis-server", "--save", "", "--appendonly", "no")
           .withExposedPorts(6379);
 
-  private static final StubUpstream CLAIM = StubUpstream.start("claim-service");
+  private static final StubUpstream PAYMENT = StubUpstream.start("payment-service");
   private static final StubUpstream AUTH =
       StubUpstream.start("auth-service").withJwks(TestTokens.jwks());
 
@@ -35,7 +35,7 @@ class RedisOutageIT {
 
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry registry) {
-    registry.add("GATEWAY_CLAIM_URI", CLAIM::uri);
+    registry.add("GATEWAY_PAYMENT_URI", PAYMENT::uri);
     registry.add("GATEWAY_AUTH_URI", AUTH::uri);
     registry.add("GATEWAY_JWT_JWK_SET_URI", () -> AUTH.uri() + "/.well-known/jwks.json");
     registry.add("spring.data.redis.host", REDIS::getHost);
@@ -49,7 +49,7 @@ class RedisOutageIT {
   void requestsKeepFlowingWhenRedisIsDown() {
     client
         .get()
-        .uri("/api/v1/claims/before-outage")
+        .uri("/api/v1/payments/before-outage")
         .header("Authorization", "Bearer " + TestTokens.valid())
         .exchange()
         .expectStatus()
@@ -59,7 +59,7 @@ class RedisOutageIT {
 
     client
         .get()
-        .uri("/api/v1/claims/during-outage")
+        .uri("/api/v1/payments/during-outage")
         .header("Authorization", "Bearer " + TestTokens.valid())
         .exchange()
         .expectStatus()

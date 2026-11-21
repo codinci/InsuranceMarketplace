@@ -31,7 +31,7 @@ class GatewayIT extends AbstractGatewayIT {
   void aRouteReachesItsServiceAndKeepsThePath() {
     client
         .get()
-        .uri("/api/v1/claims/c-42")
+        .uri("/api/v1/payments/p-42")
         .header("Authorization", bearer(TestTokens.valid()))
         .exchange()
         .expectStatus()
@@ -39,8 +39,8 @@ class GatewayIT extends AbstractGatewayIT {
         .expectBody(String.class)
         .value(body ->
             assertThat(body)
-                .contains("\"service\":\"claim-service\"")
-                .contains("/api/v1/claims/c-42"));
+                .contains("\"service\":\"payment-service\"")
+                .contains("/api/v1/payments/p-42"));
   }
 
   @Test
@@ -48,13 +48,13 @@ class GatewayIT extends AbstractGatewayIT {
     String token = TestTokens.valid();
     client
         .get()
-        .uri("/api/v1/claims/forwarded")
+        .uri("/api/v1/payments/forwarded")
         .header("Authorization", bearer(token))
         .exchange()
         .expectStatus()
         .isOk();
 
-    assertThat(CLAIM.lastHeader("Authorization")).isEqualTo(bearer(token));
+    assertThat(PAYMENT.lastHeader("Authorization")).isEqualTo(bearer(token));
   }
 
   @Test
@@ -81,7 +81,7 @@ class GatewayIT extends AbstractGatewayIT {
   void aProtectedRouteWithoutATokenIsUnauthenticatedInTheProblemFormat() {
     client
         .get()
-        .uri("/api/v1/claims/none")
+        .uri("/api/v1/payments/none")
         .exchange()
         .expectStatus()
         .isUnauthorized()
@@ -94,7 +94,7 @@ class GatewayIT extends AbstractGatewayIT {
   void aMalformedTokenIsRejectedAtTheEdge() {
     client
         .get()
-        .uri("/api/v1/claims/x")
+        .uri("/api/v1/payments/x")
         .header("Authorization", bearer("not.a.jwt"))
         .exchange()
         .expectStatus()
@@ -105,7 +105,7 @@ class GatewayIT extends AbstractGatewayIT {
   void anExpiredTokenIsRejected() {
     client
         .get()
-        .uri("/api/v1/claims/x")
+        .uri("/api/v1/payments/x")
         .header("Authorization", bearer(TestTokens.expired()))
         .exchange()
         .expectStatus()
@@ -116,7 +116,7 @@ class GatewayIT extends AbstractGatewayIT {
   void aTokenFromAnotherIssuerIsRejected() {
     client
         .get()
-        .uri("/api/v1/claims/x")
+        .uri("/api/v1/payments/x")
         .header("Authorization", bearer(TestTokens.wrongIssuer()))
         .exchange()
         .expectStatus()
@@ -127,7 +127,7 @@ class GatewayIT extends AbstractGatewayIT {
   void aTokenWithAWrongSignatureIsRejected() {
     client
         .get()
-        .uri("/api/v1/claims/x")
+        .uri("/api/v1/payments/x")
         .header("Authorization", bearer(TestTokens.wrongSignature()))
         .exchange()
         .expectStatus()
@@ -166,21 +166,21 @@ class GatewayIT extends AbstractGatewayIT {
   void aClientCannotSetTheAddressTheServicesSee() {
     client
         .get()
-        .uri("/api/v1/claims/spoof")
+        .uri("/api/v1/payments/spoof")
         .header("Authorization", bearer(TestTokens.valid()))
         .header("X-Forwarded-For", "203.0.113.99")
         .exchange()
         .expectStatus()
         .isOk();
 
-    assertThat(CLAIM.lastHeader("X-Forwarded-For")).isNotNull().doesNotContain("203.0.113.99");
+    assertThat(PAYMENT.lastHeader("X-Forwarded-For")).isNotNull().doesNotContain("203.0.113.99");
   }
 
   @Test
   void aValidCorrelationIdIsEchoedAndForwarded() {
     client
         .get()
-        .uri("/api/v1/claims/corr")
+        .uri("/api/v1/payments/corr")
         .header("Authorization", bearer(TestTokens.valid()))
         .header(CORRELATION, "corr-m2-1")
         .exchange()
@@ -189,7 +189,7 @@ class GatewayIT extends AbstractGatewayIT {
         .expectHeader()
         .valueEquals(CORRELATION, "corr-m2-1");
 
-    assertThat(CLAIM.lastHeader(CORRELATION)).isEqualTo("corr-m2-1");
+    assertThat(PAYMENT.lastHeader(CORRELATION)).isEqualTo("corr-m2-1");
   }
 
   @Test
@@ -221,7 +221,7 @@ class GatewayIT extends AbstractGatewayIT {
   void aServiceThatIsNotBuiltYetAnswers503() {
     client
         .get()
-        .uri("/api/v1/payments/p-1")
+        .uri("/api/v1/claims/c-1")
         .header("Authorization", bearer(TestTokens.valid()))
         .exchange()
         .expectStatus()
@@ -254,6 +254,30 @@ class GatewayIT extends AbstractGatewayIT {
         .expectBody(String.class)
         .value(body ->
             assertThat(body).contains("policy-service").contains("\"path\":\"/v3/api-docs\""));
+  }
+
+  @Test
+  void theAggregatedSwaggerSpecOfThePaymentServiceIsServed() {
+    client
+        .get()
+        .uri("/v3/api-docs/payment")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(String.class)
+        .value(body ->
+            assertThat(body).contains("payment-service").contains("\"path\":\"/v3/api-docs\""));
+  }
+
+  @Test
+  void internalPaymentPathsAreNotRouted() {
+    client
+        .post()
+        .uri("/internal/payments")
+        .header("Authorization", bearer(TestTokens.valid()))
+        .exchange()
+        .expectStatus()
+        .isNotFound();
   }
 
   @Test

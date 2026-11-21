@@ -9,8 +9,8 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * Shared setup for gateway integration tests: a Redis container with the production image tag, stub
- * upstreams for each service, and the gateway's route and JWKS addresses pointed at the stubs. The
- * payment route is left unset, so it behaves like a service that is not built yet.
+ * upstreams for each built service, and the gateway's route and JWKS addresses pointed at the
+ * stubs. The claim route is left unset, so it behaves like a service that is not built yet (M5).
  */
 public abstract class AbstractGatewayIT {
 
@@ -24,7 +24,7 @@ public abstract class AbstractGatewayIT {
 
   static final StubUpstream AUTH = StubUpstream.start("auth-service").withJwks(TestTokens.jwks());
   static final StubUpstream POLICY = StubUpstream.start("policy-service");
-  static final StubUpstream CLAIM = StubUpstream.start("claim-service");
+  static final StubUpstream PAYMENT = StubUpstream.start("payment-service");
 
   static {
     REDIS.start();
@@ -34,7 +34,7 @@ public abstract class AbstractGatewayIT {
   static void gatewayProperties(DynamicPropertyRegistry registry) {
     registry.add("GATEWAY_AUTH_URI", AUTH::uri);
     registry.add("GATEWAY_POLICY_URI", POLICY::uri);
-    registry.add("GATEWAY_CLAIM_URI", CLAIM::uri);
+    registry.add("GATEWAY_PAYMENT_URI", PAYMENT::uri);
     registry.add("GATEWAY_JWT_JWK_SET_URI", () -> AUTH.uri() + "/.well-known/jwks.json");
     registry.add("spring.data.redis.host", REDIS::getHost);
     registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
