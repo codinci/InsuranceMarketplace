@@ -300,7 +300,7 @@
       "post" : {
         "tags" : [ "Policies" ],
         "summary" : "Buy a policy from a quote",
-        "description" : "Creates the policy as PENDING_PAYMENT with the quoted premium and the plan's terms frozen. Payment comes next (M4b).",
+        "description" : "Creates the policy as PENDING_PAYMENT with the quoted premium and the plan's terms frozen, and its premium payment in payment-service. Pay it with POST /api/v1/payments/{paymentId}/pay; the policy becomes ACTIVE once paid. Unpaid policies are cancelled after 24 hours.",
         "operationId" : "purchase",
         "requestBody" : {
           "content" : {
@@ -375,6 +375,16 @@
           },
           "422" : {
             "description" : "START_DATE_OUT_OF_RANGE, MEMBERS_DIFFER_FROM_QUOTE, PRINCIPAL_NOT_HOLDER or DECLARATION_REQUIRED",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "payment-service unavailable (PAYMENT_UNAVAILABLE). Nothing was saved; the quote stays open, so try again.",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -1603,6 +1613,11 @@
           "status" : {
             "type" : "string",
             "example" : "PENDING_PAYMENT"
+          },
+          "paymentId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The premium payment. Pay it with POST /api/v1/payments/{paymentId}/pay (M4b)."
           },
           "insurerCode" : {
             "type" : "string"

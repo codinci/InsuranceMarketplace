@@ -12,6 +12,10 @@ public record PolicyResponse(
     UUID id,
     @Schema(example = "POL-ACACIA-2026-000123") String policyNumber,
     @Schema(example = "PENDING_PAYMENT") String status,
+    @Schema(
+            description =
+                "The premium payment. Pay it with POST /api/v1/payments/{paymentId}/pay (M4b).")
+        UUID paymentId,
     String insurerCode,
     UUID planId,
     String planCode,

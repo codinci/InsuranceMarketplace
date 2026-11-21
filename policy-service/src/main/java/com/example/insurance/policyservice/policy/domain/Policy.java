@@ -88,6 +88,14 @@ public class Policy {
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
+  /** The premium payment in payment-service, set at purchase (M4b). */
+  @Column(name = "payment_id", unique = true)
+  private UUID paymentId;
+
+  /** Business version, sent in events (PLAN 10). Not the JPA lock version below. */
+  @Column(name = "policy_version", nullable = false)
+  private long policyVersion;
+
   @Version
   @Column(name = "lock_version", nullable = false)
   private long lockVersion;
@@ -124,7 +132,40 @@ public class Policy {
     policy.status = PolicyStatus.PENDING_PAYMENT;
     policy.declaration = declarationJson;
     policy.createdAt = now;
+    policy.policyVersion = 1;
     return policy;
+  }
+
+  /** Links the premium payment that payment-service created for this policy. */
+  public void attachPayment(UUID id) {
+    if (paymentId != null && !paymentId.equals(id)) {
+      throw new IllegalStateException("Policy " + this.id + " already has a payment.");
+    }
+    this.paymentId = id;
+  }
+
+  /** The premium was paid: cover is live (PLAN 7). Only a policy awaiting payment can activate. */
+  public void activate() {
+    requirePendingPayment("activate");
+    status = PolicyStatus.ACTIVE;
+    policyVersion++;
+  }
+
+  /** Not paid in time (PLAN 8.2, M4b): the policy never starts. */
+  public void cancelUnpaid() {
+    requirePendingPayment("cancel for non-payment");
+    status = PolicyStatus.CANCELLED;
+    policyVersion++;
+  }
+
+  public boolean isPendingPayment() {
+    return status == PolicyStatus.PENDING_PAYMENT;
+  }
+
+  private void requirePendingPayment(String action) {
+    if (!isPendingPayment()) {
+      throw new IllegalStateException("Cannot " + action + " a policy that is " + status + ".");
+    }
   }
 
   public UUID getId() {
@@ -137,6 +178,10 @@ public class Policy {
 
   public UUID getHolderUserId() {
     return holderUserId;
+  }
+
+  public UUID getInsurerId() {
+    return insurerId;
   }
 
   public String getInsurerCode() {
@@ -185,5 +230,17 @@ public class Policy {
 
   public PolicyStatus getStatus() {
     return status;
+  }
+
+  public UUID getPaymentId() {
+    return paymentId;
+  }
+
+  public long getPolicyVersion() {
+    return policyVersion;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
   }
 }

@@ -37,7 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Buying a policy from a quote (PLAN 8.2). The premium is the quoted one, the terms are frozen from
- * the catalogue, and the policy waits for payment (M4b).
+ * the catalogue, and the policy waits for payment. payment-service creates the payment inside the
+ * purchase; if it cannot, the purchase fails with 503 and nothing is saved (M4b).
  */
 @Service
 public class PolicyService {
@@ -50,6 +51,7 @@ public class PolicyService {
   private final CatalogueApi catalogue;
   private final Clock clock;
   private final BusinessCalendar calendar;
+  private final PaymentClient paymentClient;
 
   public PolicyService(
       QuoteService quoteService,
@@ -59,7 +61,8 @@ public class PolicyService {
       PolicyHolderRepository holders,
       CatalogueApi catalogue,
       Clock clock,
-      BusinessCalendar calendar) {
+      BusinessCalendar calendar,
+      PaymentClient paymentClient) {
     this.quoteService = quoteService;
     this.quotes = quotes;
     this.policies = policies;
@@ -68,6 +71,7 @@ public class PolicyService {
     this.catalogue = catalogue;
     this.clock = clock;
     this.calendar = calendar;
+    this.paymentClient = paymentClient;
   }
 
   @Transactional
@@ -106,7 +110,7 @@ public class PolicyService {
             now);
     quote.markUsed();
     quotes.save(quote);
-    policies.save(policy);
+    policy = policies.save(policy);
     List<PolicyMember> saved = new ArrayList<>();
     for (int i = 0; i < request.members().size(); i++) {
       PurchaseMemberRequest m = request.members().get(i);
@@ -124,6 +128,10 @@ public class PolicyService {
                       m.dateOfBirth(),
                       m.student()))));
     }
+    // Write first, so a constraint failure (a racing purchase of the same quote) stops us before
+    // payment-service is called. The remote call comes last, just before commit.
+    policies.flush();
+    policy.attachPayment(paymentClient.createPremium(policy));
     return toResponse(policy, saved);
   }
 
@@ -194,6 +202,7 @@ public class PolicyService {
         policy.getId(),
         policy.getPolicyNumber(),
         policy.getStatus().name(),
+        policy.getPaymentId(),
         policy.getInsurerCode(),
         policy.getPlanId(),
         policy.getPlanCode(),

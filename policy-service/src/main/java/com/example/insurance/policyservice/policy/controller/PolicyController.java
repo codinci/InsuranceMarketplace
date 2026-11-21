@@ -45,7 +45,9 @@ public class PolicyController {
       summary = "Buy a policy from a quote",
       description =
           "Creates the policy as PENDING_PAYMENT with the quoted premium and the plan's terms"
-              + " frozen. Payment comes next (M4b).")
+              + " frozen, and its premium payment in payment-service. Pay it with POST"
+              + " /api/v1/payments/{paymentId}/pay; the policy becomes ACTIVE once paid. Unpaid"
+              + " policies are cancelled after 24 hours.")
   @ApiResponse(responseCode = "201", description = "The new policy")
   @ApiResponse(responseCode = "400", description = "Invalid request (VALIDATION_FAILED)")
   @ApiResponse(responseCode = "401", description = "No valid access token (UNAUTHENTICATED)")
@@ -59,6 +61,11 @@ public class PolicyController {
       description =
           "START_DATE_OUT_OF_RANGE, MEMBERS_DIFFER_FROM_QUOTE, PRINCIPAL_NOT_HOLDER or"
               + " DECLARATION_REQUIRED")
+  @ApiResponse(
+      responseCode = "503",
+      description =
+          "payment-service unavailable (PAYMENT_UNAVAILABLE). Nothing was saved; the quote stays"
+              + " open, so try again.")
   public PolicyResponse purchase(
       @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PurchaseRequest request) {
     return policyService.purchase(Customers.of(jwt), request);
