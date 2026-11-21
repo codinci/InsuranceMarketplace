@@ -1,0 +1,440 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "payment-service",
+    "description" : "Premium payments with a mock checkout, and the payment ledger (M4b).",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "tags" : [ {
+    "name" : "Payments",
+    "description" : "Premium payments for the caller's own policies (mock checkout)."
+  }, {
+    "name" : "Internal",
+    "description" : "Service-to-service endpoints (SERVICE token only). Not published through the gateway."
+  } ],
+  "paths" : {
+    "/internal/payments" : {
+      "post" : {
+        "tags" : [ "Internal" ],
+        "summary" : "Create the premium for a policy",
+        "description" : "Idempotent on the Idempotency-Key header. policy-service sends the policy id, so a retried purchase gets the same payment back.",
+        "operationId" : "create",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateIntentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Payment created, or the earlier one returned",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Missing Idempotency-Key (IDEMPOTENCY_KEY_REQUIRED) or invalid body (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a SERVICE token (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "The key was used for a different request (IDEMPOTENCY_KEY_REUSED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/payments/{id}/pay" : {
+      "post" : {
+        "tags" : [ "Payments" ],
+        "summary" : "Pay a premium (mock checkout)",
+        "description" : "One attempt per Idempotency-Key. A repeat with the same key returns the first result. A failed attempt can be paid again with a new key. Success activates the policy once policy-service consumes PremiumPaid.",
+        "operationId" : "pay",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "description" : "Unique per attempt, 1 to 80 characters",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PayRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The attempt's result: SUCCEEDED, or FAILED when the mock declined it",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Missing Idempotency-Key (IDEMPOTENCY_KEY_REQUIRED) or invalid body (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such payment of yours (PAYMENT_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Already paid (PAYMENT_ALREADY_PAID), cancelled for non-payment (PAYMENT_EXPIRED), key reused for another payment (IDEMPOTENCY_KEY_REUSED), or a concurrent change (CONFLICT)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/payments" : {
+      "get" : {
+        "tags" : [ "Payments" ],
+        "summary" : "List my payments for a policy",
+        "description" : "referenceId is the policy id. A policy has one premium, so the list has at most one item.",
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "referenceId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The caller's payments for that policy",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PaymentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "referenceId missing or not a UUID (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PaymentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PaymentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PaymentResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/payments/{id}" : {
+      "get" : {
+        "tags" : [ "Payments" ],
+        "summary" : "Get one of my payments",
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The payment and its status",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such payment of yours (PAYMENT_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "CreateIntentRequest" : {
+        "type" : "object",
+        "description" : "Sent by policy-service (SERVICE token only). The amount is the premium the server quoted; this service never reprices it.",
+        "properties" : {
+          "policyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The policy this premium is for"
+          },
+          "policyNumber" : {
+            "type" : "string",
+            "example" : "POL-ACACIA-2026-000001",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "insurerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "holderUserId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The policy holder, who is the only customer who may pay"
+          },
+          "amount" : {
+            "type" : "number",
+            "example" : 12500.0,
+            "minimum" : 0.01
+          },
+          "currency" : {
+            "type" : "string",
+            "example" : "KES",
+            "pattern" : "[A-Z]{3}"
+          }
+        },
+        "required" : [ "amount", "currency", "holderUserId", "insurerId", "policyId", "policyNumber" ]
+      },
+      "PaymentResponse" : {
+        "type" : "object",
+        "description" : "A premium payment and where it stands.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Payment id, used in POST /api/v1/payments/{id}/pay"
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "PENDING, SUCCEEDED, FAILED or EXPIRED",
+            "example" : "PENDING"
+          },
+          "referenceType" : {
+            "type" : "string",
+            "example" : "POLICY"
+          },
+          "referenceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "referenceNumber" : {
+            "type" : "string",
+            "example" : "POL-ACACIA-2026-000001"
+          },
+          "amount" : {
+            "type" : "number",
+            "example" : 12500.0
+          },
+          "currency" : {
+            "type" : "string",
+            "example" : "KES"
+          },
+          "providerRef" : {
+            "type" : "string",
+            "description" : "The mock provider's reference, once a payment succeeds"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PayRequest" : {
+        "type" : "object",
+        "description" : "Mock checkout options. Only for testing: the real provider has no such switch.",
+        "properties" : {
+          "simulate" : {
+            "type" : "string",
+            "description" : "MOCK ONLY. FAIL makes the mock provider decline this attempt, so the failure path can be exercised. Leave out for a successful payment.",
+            "enum" : [ "FAIL" ],
+            "pattern" : "FAIL"
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "bearerAuth" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT"
+      }
+    }
+  }
+}

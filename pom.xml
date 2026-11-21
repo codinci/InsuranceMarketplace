@@ -25,6 +25,7 @@
     <module>auth-service</module>
     <module>api-gateway</module>
     <module>policy-service</module>
+    <module>payment-service</module>
     <module>infra-tests</module>
   </modules>
 
@@ -47,6 +48,8 @@
     <json-schema-validator.version>3.0.9</json-schema-validator.version>
     <!-- Spring Cloud 2025.1 officially supports Spring Boot 4.1.x (spring-cloud supported-versions). M2. -->
     <spring-cloud.version>2025.1.5</spring-cloud.version>
+    <!-- Circuit breaker and retry for internal calls (M4b). Core modules, not the Boot starter. Checked on Central: POM targets Boot 4.0 autoconfigure; core modules have no Spring dependency. -->
+    <resilience4j.version>2.4.0</resilience4j.version>
 
     <!-- Line coverage floor per module (PLAN 16.1). Raised per package by ADR, never lowered. -->
     <coverage.line.minimum>0.70</coverage.line.minimum>
@@ -88,6 +91,16 @@
         <groupId>com.networknt</groupId>
         <artifactId>json-schema-validator</artifactId>
         <version>${json-schema-validator.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-circuitbreaker</artifactId>
+        <version>${resilience4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-retry</artifactId>
+        <version>${resilience4j.version}</version>
       </dependency>
       <dependency>
         <groupId>com.bucket4j</groupId>
