@@ -1,0 +1,472 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "claim-service",
+    "description" : "The policy read model used for claims, and from M5b claim intake (M5a).",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "tags" : [ {
+    "name" : "Policies",
+    "description" : "The customer's policies, as claims see them (M5a)."
+  } ],
+  "paths" : {
+    "/api/v1/claims/policies" : {
+      "get" : {
+        "tags" : [ "Policies" ],
+        "summary" : "List my policies",
+        "description" : "The policies claim-service has received events for, newest cover first. A policy that is still awaiting payment is not listed; GET by id can still answer for it.",
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of policies",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicyView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad paging parameters (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicyView"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicyView"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicyView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/policies/{policyId}" : {
+      "get" : {
+        "tags" : [ "Policies" ],
+        "summary" : "Read one of my policies",
+        "description" : "Answers from the read model. If the event has not arrived yet, policy-service is asked. Anyone else's policy, or an unknown one, is 404.",
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "policyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The policy with its terms",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyView"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyView"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyView"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such policy of yours (POLICY_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyView"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "policy-service unavailable (POLICY_UNAVAILABLE). Retry-After tells you when to try again.",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "BenefitTerms" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "limit" : {
+            "$ref" : "#/components/schemas/LimitTerms"
+          },
+          "copay" : {
+            "$ref" : "#/components/schemas/CopayTerms"
+          },
+          "requiredDocuments" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "preAuthRequired" : {
+            "type" : "boolean"
+          },
+          "children" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BenefitTerms"
+            }
+          }
+        }
+      },
+      "CancellationTerms" : {
+        "type" : "object",
+        "properties" : {
+          "noticeDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "refundModel" : {
+            "type" : "string"
+          },
+          "noRefundAfterMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "noRefundIfClaims" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "CopayTerms" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        }
+      },
+      "LimitTerms" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "period" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "maxPerVisit" : {
+            "type" : "number"
+          },
+          "maxCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "MemberTerms" : {
+        "type" : "object",
+        "properties" : {
+          "memberNumber" : {
+            "type" : "string"
+          },
+          "relationship" : {
+            "type" : "string"
+          },
+          "sex" : {
+            "type" : "string"
+          },
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "dateOfBirth" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "student" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ModuleTerms" : {
+        "type" : "object",
+        "properties" : {
+          "module" : {
+            "type" : "string"
+          },
+          "option" : {
+            "type" : "string"
+          },
+          "benefits" : {
+            "$ref" : "#/components/schemas/BenefitTerms"
+          }
+        }
+      },
+      "PageResponsePolicyView" : {
+        "type" : "object",
+        "description" : "One page of results.",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "description" : "The items on this page.",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyView"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page number, starting at 0.",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Requested page size.",
+            "example" : 20
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Items across all pages.",
+            "example" : 42
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of pages.",
+            "example" : 3
+          }
+        }
+      },
+      "PolicyView" : {
+        "type" : "object",
+        "description" : "A policy the customer holds, with the terms it was sold with.",
+        "properties" : {
+          "policyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "policyNumber" : {
+            "type" : "string",
+            "example" : "POL-ACACIA-2026-000123"
+          },
+          "insurerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string",
+            "example" : "ACTIVE"
+          },
+          "coverStart" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "coverEnd" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "cancelEffectiveDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "policyVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "members" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MemberTerms"
+            }
+          },
+          "termsSnapshot" : {
+            "$ref" : "#/components/schemas/TermsSnapshot"
+          }
+        }
+      },
+      "TermsSnapshot" : {
+        "type" : "object",
+        "properties" : {
+          "snapshotVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "insurerCode" : {
+            "type" : "string"
+          },
+          "planId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "planCode" : {
+            "type" : "string"
+          },
+          "planVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "ageBasis" : {
+            "type" : "string"
+          },
+          "modules" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ModuleTerms"
+            }
+          },
+          "waitingRules" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WaitingRuleTerms"
+            }
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "filingDeadlineDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cancellation" : {
+            "$ref" : "#/components/schemas/CancellationTerms"
+          }
+        }
+      },
+      "WaitingRuleTerms" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "precedence" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cause" : {
+            "type" : "string"
+          },
+          "surgical" : {
+            "type" : "boolean"
+          },
+          "conditionTags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "benefits" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "bearerAuth" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT"
+      }
+    }
+  }
+}
