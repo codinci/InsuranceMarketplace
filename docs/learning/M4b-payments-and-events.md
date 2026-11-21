@@ -74,7 +74,13 @@
    - **Why the resend is harmless.** The resent message carries the **same `eventId`**, because the outbox row stores the whole envelope and the relay sends it unchanged. policy-service checks its inbox (`processed_events`) for that id and records it in the same transaction as the activation. The second delivery finds the id and does nothing, so there is one activation and one `PolicyActivated`. A second guard backs this up: activation applies only to a policy that is still `PENDING_PAYMENT`.
    - **The general rule.** The outbox gives at-least-once delivery, never exactly-once. The inbox turns "at least once" into "effect once".
 
-2. *Not answered yet.*
+2. **Answered by the owner:** The quote is protected against a second payment with the same idempotency key, so the second press gets "payment in progress". The third retry, with a new key, gets a conflict error: quote already purchased.
+   **Corrected version:** the outcome is right: **one charge**. What protects it, and what each request gets back, need correcting:
+   - **It is the payment that is protected, not the quote.** The quote was used up at purchase, when the policy and its payment were created. `pay` works on the payment (`/api/v1/payments/{id}/pay`), and the protection is the unique `idempotency_key` column on `payment_transactions`, the ledger of attempts.
+   - **First press:** the mock provider charges, one ledger row is written with the key, and the answer is **200 `SUCCEEDED`** with a `providerRef`.
+   - **Second press, same key:** there is no "in progress" state. If it arrives after the first one finished (the usual case), payment-service finds the ledger row for that key and **replays the stored result: 200 `SUCCEEDED` with the same `providerRef`**, without charging. If it arrives at exactly the same moment, both requests try to insert a ledger row with the same key. The database's unique constraint lets one win, and the loser gets **409 `CONFLICT`** ("changed at the same time, try again"). Retrying with the same key then replays 200 `SUCCEEDED`. Either way there is one ledger row and one charge (`parallelPayRequestsWithOneKeyLeaveExactlyOneLedgerRow`).
+   - **Third request, new key:** the key is unknown, so this counts as a new attempt. The payment is already `SUCCEEDED`, though, so it is refused with **409 `PAYMENT_ALREADY_PAID`**. That code is about the payment; the quote's 409 `QUOTE_NOT_OPEN` only comes from buying a quote twice.
+   - **The rule to remember:** the same key means "the same request, give me its answer again". A new key means "a new attempt", and a new attempt is allowed only while the payment can still be paid (`PENDING` or `FAILED`).
 
 3. *Not answered yet.*
 
