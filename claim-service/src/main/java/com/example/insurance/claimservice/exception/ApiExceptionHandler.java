@@ -1,5 +1,6 @@
 package com.example.insurance.claimservice.exception;
 
+import com.example.insurance.claimservice.statemachine.ClaimStateMachine;
 import com.example.insurance.common.problem.Problems;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** Every controller failure becomes RFC 7807 with a stable {@code code} (common-starter format). */
@@ -33,6 +35,16 @@ public class ApiExceptionHandler {
     return ResponseEntity.status(response.getStatusCode())
         .headers(headers)
         .body(response.getBody());
+  }
+
+  @ExceptionHandler(ClaimStateMachine.InvalidTransitionException.class)
+  ResponseEntity<ProblemDetail> handleTransition(ClaimStateMachine.InvalidTransitionException ex) {
+    return problem(ErrorCode.INVALID_TRANSITION, ex.getMessage(), null);
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  ResponseEntity<ProblemDetail> handleUploadSize(MaxUploadSizeExceededException ex) {
+    return problem(ErrorCode.DOCUMENT_TOO_LARGE, "Documents must be 10 MB or less.", null);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -67,6 +67,19 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-kafka</artifactId>
     </dependency>
+    <!-- SpotBugs suppression annotations, compile-time only (ADR-016). Same release as the SpotBugs plugin. -->
+    <dependency>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
+      <version>4.10.5</version>
+      <scope>provided</scope>
+    </dependency>
+    <!-- Document storage on SeaweedFS through the S3 API (PLAN 12, M5b). Same version as the M0b infra smoke test. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <version>2.59.4</version>
+    </dependency>
     <!-- Circuit breaker and retry around the policy-service fallback call (PLAN 11, M5a). Versions in the parent POM. -->
     <dependency>
       <groupId>io.github.resilience4j</groupId>

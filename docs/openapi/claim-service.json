@@ -12,14 +12,752 @@
   "tags" : [ {
     "name" : "Policies",
     "description" : "The customer's policies, as claims see them (M5a)."
+  }, {
+    "name" : "Claims",
+    "description" : "Documents of a claim (M5b)."
+  }, {
+    "name" : "Claims",
+    "description" : "The customer's claims: draft, submit, withdraw and follow them (M5b)."
   } ],
   "paths" : {
+    "/api/v1/claims/{claimId}" : {
+      "get" : {
+        "tags" : [ "Claims" ],
+        "summary" : "Read one of my claims",
+        "description" : "The claim with its checks.",
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The claim",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      },
+      "put" : {
+        "tags" : [ "Claims" ],
+        "summary" : "Change a draft claim",
+        "description" : "Replaces the details of a draft.",
+        "operationId" : "update",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ClaimDetails"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The updated claim",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "The claim is no longer a draft (CLAIM_NOT_EDITABLE)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims" : {
+      "get" : {
+        "tags" : [ "Claims" ],
+        "summary" : "List my claims",
+        "description" : "Your claims, newest first. The checks are shown on GET by id, not in the list.",
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of claims",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseClaimResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad paging parameters (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "Claims" ],
+        "summary" : "Start a claim",
+        "description" : "Creates a DRAFT against one of your policies. Nothing is checked against the policy until you submit it.",
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateClaimRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "The draft claim",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such policy of yours (POLICY_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "The policy's terms are not available (POLICY_UNUSABLE)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/{claimId}/withdraw" : {
+      "post" : {
+        "tags" : [ "Claims" ],
+        "summary" : "Withdraw a claim",
+        "description" : "Withdraws a draft or a submitted claim.",
+        "operationId" : "withdraw",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The withdrawn claim",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "The claim can no longer be withdrawn (INVALID_TRANSITION)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/{claimId}/submit" : {
+      "post" : {
+        "tags" : [ "Claims" ],
+        "summary" : "Submit a claim",
+        "description" : "Runs the automatic checks. A claim that passes is SUBMITTED and sent for review. A claim that fails is REJECTED at once; the response lists each check and the reason.",
+        "operationId" : "submit",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The claim, SUBMITTED or REJECTED, with its checks",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Only a draft can be submitted (INVALID_TRANSITION, POLICY_UNUSABLE)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/{claimId}/documents" : {
+      "get" : {
+        "tags" : [ "Claims" ],
+        "summary" : "List the documents of my claim",
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of documents",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseDocumentView"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseDocumentView"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseDocumentView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "Claims" ],
+        "summary" : "Upload a document",
+        "description" : "Adds a PDF, JPEG or PNG of up to 10 MB to a draft claim. The file's first bytes must match its declared type. At most 10 documents per claim.",
+        "operationId" : "upload",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "docType",
+          "in" : "query",
+          "description" : "What the document proves, upper case, for example INVOICE.",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "description" : "What the document proves, upper case, for example INVOICE."
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "description" : "The stored document",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Missing or invalid fields (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Not a draft, or too many documents (CLAIM_NOT_EDITABLE, DOCUMENT_LIMIT_REACHED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "413" : {
+            "description" : "Larger than 10 MB (DOCUMENT_TOO_LARGE)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "415" : {
+            "description" : "Not a PDF, JPEG or PNG (DOCUMENT_TYPE_NOT_ALLOWED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "The content does not match the type (DOCUMENT_CONTENT_MISMATCH)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/{claimId}/history" : {
+      "get" : {
+        "tags" : [ "Claims" ],
+        "summary" : "Status history of my claim",
+        "description" : "Every status change, oldest first.",
+        "operationId" : "history",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of status changes",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseStatusChangeView"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseStatusChangeView"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseStatusChangeView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/{claimId}/documents/{documentId}/download-url" : {
+      "get" : {
+        "tags" : [ "Claims" ],
+        "summary" : "A link to download a document",
+        "description" : "A presigned URL that expires after five minutes. Only the claim's owner gets one.",
+        "operationId" : "downloadUrl",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "documentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The link and when it expires",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadUrlView"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadUrlView"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim or document of yours (CLAIM_NOT_FOUND, DOCUMENT_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadUrlView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
     "/api/v1/claims/policies" : {
       "get" : {
         "tags" : [ "Policies" ],
         "summary" : "List my policies",
         "description" : "The policies claim-service has received events for, newest cover first. A policy that is still awaiting payment is not listed; GET by id can still answer for it.",
-        "operationId" : "list",
+        "operationId" : "list_2",
         "parameters" : [ {
           "name" : "page",
           "in" : "query",
@@ -94,7 +832,7 @@
         "tags" : [ "Policies" ],
         "summary" : "Read one of my policies",
         "description" : "Answers from the read model. If the event has not arrived yet, policy-service is asked. Anyone else's policy, or an unknown one, is 404.",
-        "operationId" : "get",
+        "operationId" : "get_1",
         "parameters" : [ {
           "name" : "policyId",
           "in" : "path",
@@ -164,6 +902,361 @@
   },
   "components" : {
     "schemas" : {
+      "ClaimDetails" : {
+        "type" : "object",
+        "description" : "The details of a claim, as the customer states them.",
+        "properties" : {
+          "memberId" : {
+            "type" : "string",
+            "example" : "MEM-ACACIA-2026-000123-0",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "moduleCode" : {
+            "type" : "string",
+            "example" : "OUTPATIENT",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "benefitCode" : {
+            "type" : "string",
+            "example" : "OP-CONSULT",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "cause" : {
+            "type" : "string",
+            "enum" : [ "ACCIDENT", "ILLNESS" ]
+          },
+          "surgical" : {
+            "type" : "boolean"
+          },
+          "conditionTags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "pattern" : "^[A-Z][A-Z0-9_]{0,39}$"
+            },
+            "maxItems" : 10,
+            "minItems" : 0
+          },
+          "incidentDate" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "2027-01-15"
+          },
+          "providerName" : {
+            "type" : "string",
+            "maxLength" : 120,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "amountClaimed" : {
+            "type" : "number",
+            "example" : 3000.0,
+            "minimum" : 0.01
+          }
+        },
+        "required" : [ "amountClaimed", "benefitCode", "cause", "description", "incidentDate", "memberId", "moduleCode", "providerName" ]
+      },
+      "AssessmentView" : {
+        "type" : "object",
+        "description" : "One automatic check and its outcome.",
+        "properties" : {
+          "ruleCode" : {
+            "type" : "string"
+          },
+          "result" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ClaimResponse" : {
+        "type" : "object",
+        "description" : "A claim, with its details, status and automatic check results.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "claimNumber" : {
+            "type" : "string",
+            "example" : "CLM-ACACIA-2026-000001"
+          },
+          "policyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "memberId" : {
+            "type" : "string"
+          },
+          "moduleCode" : {
+            "type" : "string"
+          },
+          "benefitCode" : {
+            "type" : "string"
+          },
+          "cause" : {
+            "type" : "string"
+          },
+          "surgical" : {
+            "type" : "boolean"
+          },
+          "conditionTags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "incidentDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "providerName" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "amountClaimed" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "example" : "DRAFT"
+          },
+          "rejectionReason" : {
+            "type" : "string",
+            "description" : "Why the claim was rejected, when it was."
+          },
+          "assessments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssessmentView"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Increases with every change; send it back when you need one."
+          }
+        }
+      },
+      "CreateClaimRequest" : {
+        "type" : "object",
+        "description" : "Starts a claim as a DRAFT against one of the customer's policies.",
+        "properties" : {
+          "policyId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The policy the claim is against."
+          },
+          "claim" : {
+            "$ref" : "#/components/schemas/ClaimDetails"
+          }
+        },
+        "required" : [ "claim", "policyId" ]
+      },
+      "DocumentView" : {
+        "type" : "object",
+        "description" : "An uploaded claim document.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "fileName" : {
+            "type" : "string",
+            "example" : "invoice.pdf"
+          },
+          "contentType" : {
+            "type" : "string",
+            "example" : "application/pdf"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "docType" : {
+            "type" : "string",
+            "example" : "INVOICE"
+          },
+          "uploadedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PageResponseClaimResponse" : {
+        "type" : "object",
+        "description" : "One page of results.",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "description" : "The items on this page.",
+            "items" : {
+              "$ref" : "#/components/schemas/ClaimResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page number, starting at 0.",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Requested page size.",
+            "example" : 20
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Items across all pages.",
+            "example" : 42
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of pages.",
+            "example" : 3
+          }
+        }
+      },
+      "PageResponseStatusChangeView" : {
+        "type" : "object",
+        "description" : "One page of results.",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "description" : "The items on this page.",
+            "items" : {
+              "$ref" : "#/components/schemas/StatusChangeView"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page number, starting at 0.",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Requested page size.",
+            "example" : 20
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Items across all pages.",
+            "example" : 42
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of pages.",
+            "example" : 3
+          }
+        }
+      },
+      "StatusChangeView" : {
+        "type" : "object",
+        "description" : "One status change of a claim.",
+        "properties" : {
+          "from" : {
+            "type" : "string",
+            "example" : "DRAFT"
+          },
+          "to" : {
+            "type" : "string",
+            "example" : "SUBMITTED"
+          },
+          "actorRole" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PageResponseDocumentView" : {
+        "type" : "object",
+        "description" : "One page of results.",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "description" : "The items on this page.",
+            "items" : {
+              "$ref" : "#/components/schemas/DocumentView"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page number, starting at 0.",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Requested page size.",
+            "example" : 20
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Items across all pages.",
+            "example" : 42
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of pages.",
+            "example" : 3
+          }
+        }
+      },
+      "DownloadUrlView" : {
+        "type" : "object",
+        "description" : "A time-limited link to download one document.",
+        "properties" : {
+          "url" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "BenefitTerms" : {
         "type" : "object",
         "properties" : {
