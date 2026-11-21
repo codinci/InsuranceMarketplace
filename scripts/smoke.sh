@@ -56,6 +56,7 @@ step "aggregated Swagger serves the auth-service, policy-service and payment-ser
 call 200 "$BASE/v3/api-docs/auth" | grep '"title"' >/dev/null && echo "auth spec served through the gateway" || fail "auth spec served through the gateway"
 call 200 "$BASE/v3/api-docs/policy" | grep '"policy-service"' >/dev/null && echo "policy spec served through the gateway" || fail "policy spec served through the gateway"
 call 200 "$BASE/v3/api-docs/payment" | grep '"payment-service"' >/dev/null && echo "payment spec served through the gateway" || fail "payment spec served through the gateway"
+call 200 "$BASE/v3/api-docs/claim" | grep '"claim-service"' >/dev/null && echo "claim spec served through the gateway" || fail "claim spec served through the gateway"
 
 step "register a policyholder"
 EMAIL="smoke.$(date +%s)@example.com"
@@ -79,8 +80,9 @@ step "/internal is never published, even with a valid token"
 call 404 "$BASE/internal/policies/1" -H "Authorization: Bearer $ACCESS" > /dev/null && echo "internal path not found" || fail "internal path not found"
 call 404 "$BASE/internal/payments" -X POST -H "Authorization: Bearer $ACCESS" > /dev/null && echo "internal payments not found" || fail "internal payments not found"
 
-step "a route whose service is not built yet answers 503 (claim-service comes in M5)"
-call 503 "$BASE/api/v1/claims/x" -H "Authorization: Bearer $ACCESS" > /dev/null && echo "UPSTREAM_UNAVAILABLE" || fail "UPSTREAM_UNAVAILABLE"
+step "claims are routed to claim-service: an unknown claim path is answered by it"
+call 404 "$BASE/api/v1/claims/x" -H "Authorization: Bearer $ACCESS" | grep '"NOT_FOUND"' >/dev/null \
+  && echo "claim-service answered" || fail "claim-service answered"
 
 step "unknown paths are answered in the problem format (with a valid token, so routing is reached)"
 call 404 "$BASE/no/such/path" -H "Authorization: Bearer $ACCESS" > /dev/null && echo "unknown path not found" || fail "unknown path not found"
@@ -219,6 +221,23 @@ REPLAY=$(call 200 "$BASE/api/v1/payments/$PAYMENT_ID/pay" -X POST -H "Authorizat
 call 409 "$BASE/api/v1/payments/$PAYMENT_ID/pay" -X POST -H "Authorization: Bearer $BUYER" \
   -H "Idempotency-Key: smoke-again-$(date +%s)" | grep '"PAYMENT_ALREADY_PAID"' >/dev/null && echo "a new key cannot charge twice" || fail "a new key cannot charge twice"
 await_status "$BUYER" "$POLICY_ID" ACTIVE && echo "policy $POLICY_ID is ACTIVE" || fail "policy $POLICY_ID is ACTIVE"
+
+step "claims: the activated policy reaches claim-service's read model (PolicyActivated), for its holder only"
+# claim_list_has TOKEN ID: the claim-service list (read model only, no fallback) contains the policy.
+claim_list_has() { call 200 "$BASE/api/v1/claims/policies" -H "Authorization: Bearer $1" | grep "\"policyId\":\"$2\"" >/dev/null; }
+for i in $(seq 1 60); do
+  claim_list_has "$BUYER" "$POLICY_ID" && break
+  sleep 0.5
+done
+claim_list_has "$BUYER" "$POLICY_ID" && echo "policy is in the claim read model" || fail "policy is in the claim read model"
+call 200 "$BASE/api/v1/claims/policies/$POLICY_ID" -H "Authorization: Bearer $BUYER" | grep '"status":"ACTIVE"' >/dev/null \
+  && echo "holder reads it with its terms" || fail "holder reads it with its terms"
+call 404 "$BASE/api/v1/claims/policies/$POLICY_ID" -H "Authorization: Bearer $OTHER_BUYER" | grep '"POLICY_NOT_FOUND"' >/dev/null \
+  && echo "another customer gets 404" || fail "another customer gets 404"
+call 200 "$BASE/api/v1/claims/policies" -H "Authorization: Bearer $OTHER_BUYER" | grep "\"policyId\":\"$POLICY_ID\"" >/dev/null \
+  && fail "another customer's list must not contain it" || echo "another customer's list does not contain it"
+call 403 "$BASE/api/v1/claims/policies" -H "Authorization: Bearer $OTHER_TOKEN" | grep '"FORBIDDEN"' >/dev/null \
+  && echo "staff get 403 on the customer endpoint" || fail "staff get 403 on the customer endpoint"
 
 step "payments: a declined payment leaves a second policy awaiting payment"
 QUOTE2_ID=$(field "$(call 201 "$BASE/api/v1/quotes" -H "$JSON" -H "Authorization: Bearer $BUYER" \

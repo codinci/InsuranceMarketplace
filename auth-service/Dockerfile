@@ -10,6 +10,7 @@ COPY auth-service ./auth-service
 COPY api-gateway ./api-gateway
 COPY policy-service ./policy-service
 COPY payment-service ./payment-service
+COPY claim-service ./claim-service
 COPY infra-tests ./infra-tests
 RUN mvn -B -q -pl auth-service -am package -DskipTests
 
