@@ -7,14 +7,14 @@ Operational steps for running the platform locally. Production runbook sections 
 ```bash
 cp .env.example .env              # then replace every value; .env is never committed
 docker compose --profile infra up -d        # Postgres, Kafka, SeaweedFS and init jobs
-docker compose --profile full up -d --build # plus auth-service and the API gateway (builds the images)
+docker compose --profile full up -d --build # plus auth-, policy- and payment-service and the API gateway (builds the images)
 docker compose --profile tools up -d        # optional: Kafka UI on http://localhost:8090
 docker compose ps                           # every service should show "healthy"
 docker compose --profile full down          # stop; data volumes are kept
 docker compose --profile full down -v       # stop and DELETE all local data
 ```
 
-Host ports (all bound to 127.0.0.1): Postgres 15432, Kafka 9094 (host listener), SeaweedFS S3 8333, the API gateway on GATEWAY_HOST_PORT (default 8080), Kafka UI 8090. Redis and auth-service are not published. Inside the compose network, Postgres is still `postgres:5432`.
+Host ports (all bound to 127.0.0.1): Postgres 15432, Kafka 9094 (host listener), SeaweedFS S3 8333, the API gateway on GATEWAY_HOST_PORT (default 8080), Kafka UI 8090. Redis and the services behind the gateway are not published. Inside the compose network, Postgres is still `postgres:5432`.
 
 ## Before starting: port conflicts
 
@@ -45,6 +45,8 @@ Reading taken at M0b on a single development machine (`docker stats --no-stream`
 | seaweedfs | 62 MiB | 512 MiB |
 | postgres (5 databases) | 37 MiB | 256 MiB |
 | **Total** | **about 644 MiB** | |
+
+Reading taken at M4b with the `full` profile, idle after a smoke run (`docker stats --no-stream`): api-gateway 246 MiB, auth-service 331 MiB, policy-service 382 MiB, payment-service 304 MiB, kafka 414 MiB, seaweedfs 122 MiB, postgres 89 MiB, redis 15 MiB, about 1.9 GiB in all. policy-service was close to its 384 MiB limit, so its limit is now 512 MiB (heap unchanged at 256m). No container was killed for memory.
 
 Extrapolation (rough): six Spring services at about 150 MiB each, plus Kafka, Postgres and SeaweedFS, comes to about 1.5 GiB at idle. Real services with JPA and Kafka clients will use more, so budget 2-3 GiB under load. That is well below the 4-4.5 GB estimate in PLAN 15. Recalibrate with the auth-service reading at M1, when the first real service exists.
 
@@ -112,11 +114,39 @@ echo "POLICY_FIELD_KEY_ID=policy-key-1" >> .env
 
 Keep the key with the data: losing it makes the stored national IDs unreadable. Changing it needs a rotation (ADR-012), not a simple replacement.
 
-Buying a policy locally (`$TOKEN` is a customer's access token): `PUT /api/v1/me/profile`, then `POST /api/v1/quotes` with a plan id from `GET /api/v1/insurers/ACACIA/plans`, then `POST /api/v1/policies` with the quote id. `scripts/smoke.sh` runs this flow. The policy stays `PENDING_PAYMENT` until payment arrives in M4b.
+Buying a policy locally (`$TOKEN` is a customer's access token): `PUT /api/v1/me/profile`, then `POST /api/v1/quotes` with a plan id from `GET /api/v1/insurers/ACACIA/plans`, then `POST /api/v1/policies` with the quote id. `scripts/smoke.sh` runs this flow. The policy stays `PENDING_PAYMENT` until it is paid (next section).
+
+## Payments, events and service tokens (M4b)
+
+**The flow.** `POST /api/v1/policies` creates the policy and, in the same request, its premium in payment-service (`paymentId` in the response). The customer pays with `POST /api/v1/payments/{paymentId}/pay` and an `Idempotency-Key` header; the mock provider succeeds unless the body is `{"simulate":"FAIL"}`. payment-service publishes `PremiumPaid` on `payment.events`, policy-service activates the policy and publishes `PolicyActivated` on `policy.events`. Activation is asynchronous: poll `GET /api/v1/policies/{id}`, it normally takes one to two seconds. A policy unpaid after 24 hours is cancelled (`PolicyCancelled`, reason `UNPAID`) and its payment expires.
+
+**Service secret (ADR-014).** policy-service gets a short-lived `SERVICE` token from auth-service with a shared secret. Both read `SERVICE_SECRET_POLICY_SERVICE` from `.env`; set it once to a long random value:
+
+```bash
+echo "SERVICE_SECRET_POLICY_SERVICE=$(openssl rand -hex 24)" >> .env
+```
+
+Without it, auth-service refuses the token request and every purchase answers 503 `PAYMENT_UNAVAILABLE`. To change it, update `.env` and restart both services; tokens already issued stay valid for at most five minutes.
+
+**A throwaway `.env`.** `bash scripts/make-env.sh > .env` writes one with fresh random values (CI uses it). Never use it for anything you keep: a new signing key signs every user out, and a new field key makes stored national IDs unreadable.
+
+**Look at the events.** Kafka UI (`docker compose --profile tools up -d`, http://localhost:8090), or from the shell:
+
+```bash
+MSYS_NO_PATHCONV=1 docker compose exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic policy.events --from-beginning --timeout-ms 8000
+```
+
+Use `payment.events` for the payment side and `<topic>.DLT` for messages a consumer gave up on. Unsent events wait in each service's `outbox_events` table (`published_at` is null); applied ones are in `processed_events`.
+
+**Replaying a dead letter** is a manual procedure until M8: fix the cause, then publish the message value again to the original topic with the same key. The inbox makes a replay of an already applied event harmless.
+
+**The full gate starts the stack.** `scripts/verify.sh` builds the images, starts the `full` profile, waits until the gateway is healthy and runs `scripts/smoke.sh`. If the stack was not running before, it is stopped again at the end (data volumes are kept).
 
 ## Troubleshooting
 
 - **A service shows "unhealthy" or "starting" for a long time:** `docker compose logs <service>`. Kafka and SeaweedFS can take 30-60 seconds on first start.
 - **`port is already allocated`:** another container holds the port. `docker ps --format '{{.Names}} {{.Ports}}'` shows which one.
-- **Kafka topics missing:** the `kafka-topics` job runs once. Check its output with `docker compose logs kafka-topics`.
+- **Kafka topics missing:** the `kafka-topics` job runs once. Check its output with `docker compose logs kafka-topics`. policy-service and payment-service start only after it has finished.
+- **Purchase answers 503 `PAYMENT_UNAVAILABLE`:** payment-service is down, or auth-service refused the service token (check `SERVICE_SECRET_POLICY_SERVICE`). After several failures the circuit breaker stays open for 30 seconds and purchases fail at once; they recover on their own once payment-service is back. Nothing is saved and the quote stays open.
+- **A paid policy stays `PENDING_PAYMENT`:** check `docker compose logs policy-service` for a warning about the `PremiumPaid` event, then the `payment.events.DLT` topic and the payment-service `outbox_events` table.
 - **Disk full:** Docker keeps images and build cache. `docker system df` shows usage. Prune only after checking which images other projects use.

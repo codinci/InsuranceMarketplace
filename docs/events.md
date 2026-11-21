@@ -34,14 +34,87 @@ Rules: additive changes only. Consumers ignore unknown fields.
 
 Topics are created by the compose stack at start (M0b). Each topic has a `.DLT` dead-letter topic.
 
-| Topic | Events (planned) | Producer | Consumers |
+| Topic | Events (planned; built so far in bold) | Producer | Consumers |
 |---|---|---|---|
 | `user.events` | UserRegistered | auth-service | notification-service |
-| `policy.events` | PolicyActivated, PolicyCancelled, PolicyExpired | policy-service | claim-service, notification-service |
-| `payment.events` | PremiumPaid, PremiumFailed, PayoutSucceeded, PayoutFailed | payment-service | policy-service, claim-service, notification-service |
+| `policy.events` | **PolicyActivated**, **PolicyCancelled**, PolicyExpired | policy-service | payment-service (M4b), claim-service, notification-service |
+| `payment.events` | **PremiumPaid**, **PremiumFailed**, PayoutSucceeded, PayoutFailed | payment-service | policy-service (M4b), claim-service, notification-service |
 | `claim.events` | ClaimSubmitted, ClaimInfoRequested, ClaimApproved, ClaimRejected | claim-service | payment-service, notification-service |
 
-Payload schemas for each event are added in the milestone that introduces the producer (see PLAN 10). The first producer arrives in M4b.
+Payload schemas for each event are added in the milestone that introduces the producer (see PLAN 10). The payload records live in `common-events`; the `type` names are constants in `EventTypes`.
+
+## Delivery (ADR-013)
+
+- **Producers** write the event to an `outbox_events` table in the same transaction as the business change. A relay sends unsent rows to Kafka every second and marks a row published only after the broker acknowledges it, so a crash causes a resend, never a loss. The relay stops at the first failure, so later events about the same aggregate are not sent out of order.
+- **Consumers** record each applied `eventId` in a `processed_events` table (the inbox) in the same transaction as their change. A redelivered event is skipped.
+- **Failures:** a consumer retries a failing message three times, one second apart, then sends it to `<topic>.DLT`. An unknown `type` goes to the DLT at once.
+- **Keys:** the aggregate id (the policy id for every event below), so all events about one policy land on one partition, in order.
+- **Headers:** every message carries the event `type` as the Kafka header `eventType`, so a consumer or a tool can route or filter without parsing the JSON.
+
+## Payloads (M4b)
+
+### PremiumPaid v1 (`payment.events`, payment-service)
+
+Sent when a premium payment succeeds. policy-service activates the policy, but only if it is still `PENDING_PAYMENT` and `paymentId` is the policy's own payment.
+
+```json
+{
+  "paymentId": "0d6f2a4e-3b1c-4c8e-9a7d-2f5e6b7c8d9e",
+  "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
+  "policyNumber": "POL-ACACIA-2026-000002",
+  "amount": 12500.00,
+  "currency": "KES",
+  "providerRef": "mock-6a1f0c2d-9b8e-4f7a-8c3d-2e1f0a9b8c7d"
+}
+```
+
+### PremiumFailed v1 (`payment.events`, payment-service)
+
+Sent when the mock provider declines a payment. The policy stays `PENDING_PAYMENT` and the customer may pay again with a new `Idempotency-Key`.
+
+```json
+{
+  "paymentId": "0d6f2a4e-3b1c-4c8e-9a7d-2f5e6b7c8d9e",
+  "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
+  "policyNumber": "POL-ACACIA-2026-000002",
+  "reason": "PROVIDER_DECLINED"
+}
+```
+
+### PolicyActivated v1 (`policy.events`, policy-service)
+
+Sent when a policy becomes `ACTIVE`. It carries everything claim-service needs to build its read model without calling policy-service (M5): the members and the terms snapshot below.
+
+```json
+{
+  "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
+  "policyNumber": "POL-ACACIA-2026-000002",
+  "policyVersion": 2,
+  "holderUserId": "8c2e4f6a-1b3d-4e5f-8a9b-0c1d2e3f4a5b",
+  "coverStart": "2026-12-01",
+  "coverEnd": "2027-11-30",
+  "members": [
+    { "memberNumber": "ACA-000002-01", "relationship": "PRINCIPAL", "sex": "FEMALE", "firstName": "Smoke", "lastName": "Buyer", "dateOfBirth": "1990-06-15", "student": false }
+  ],
+  "terms": { "snapshotVersion": 1, "...": "see Policy terms snapshot v1" }
+}
+```
+
+### PolicyCancelled v1 (`policy.events`, policy-service)
+
+In M4b the only producer is the unpaid-policy job: a policy still `PENDING_PAYMENT` 24 hours after purchase is cancelled with `reason` `UNPAID`. payment-service then marks its payment `EXPIRED`, and a late pay attempt answers 409 `PAYMENT_EXPIRED`. Cancelling a paid policy (D7) arrives in M8.
+
+```json
+{
+  "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
+  "policyNumber": "POL-ACACIA-2026-000002",
+  "policyVersion": 2,
+  "reason": "UNPAID",
+  "effectiveDate": "2026-11-22"
+}
+```
+
+`policyVersion` starts at 1 at purchase and increases with every change. A consumer that has seen a higher version for a policy ignores a lower one.
 
 ## Policy terms snapshot v1
 

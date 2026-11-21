@@ -212,7 +212,9 @@ services:
       timeout: 5s
       retries: 20
       start_period: 40s
-    mem_limit: 384m
+    # Catalogue, policies, Kafka clients and the payment client: it reached about 380 MiB idle at M4b, so it gets
+    # more headroom than the other services. The heap stays at 256m.
+    mem_limit: 512m
 
   # Mock checkout, payments and the payment ledger (PLAN 3, M4b). Not published: customers pay through the gateway,
   # and policy-service calls /internal/payments directly on the compose network.
