@@ -47,6 +47,35 @@
 2. Two browser tabs submit `POST /policies` for the same quote at the same moment. Which two mechanisms stop a second policy, and which response does the losing request get?
 3. A database backup leaks. What does the attacker learn about national IDs, and what would change if the same key also leaked? Why does each value look different even for two customers with the same ID?
 
+## Corrected answers
+
+1. **Answered by the owner:** The quote is rejected and the customer has to request another quote.
+   **Corrected version:**
+   - `POST /policies` compares the submitted members with the members stored on the quote. The daughter's date of birth differs, so the purchase is refused with **422 `MEMBERS_DIFFER_FROM_QUOTE`** and no policy is created.
+   - **Why:** the premium depends on each member's age band, so a different date of birth can mean a different price. The server never reprices at purchase or trusts the client's members. The quote is the priced contract (D36). Purchase only adds names and the declaration.
+   - **The quote itself is not used up.** The check fails inside the purchase transaction, which rolls back, so the quote stays `OPEN` and can still be bought with the original members.
+   - **What the customer should do:** request a new quote with the corrected date of birth (it may price differently), then buy from that quote.
+
+   The owner's answer was right on the outcome and the remedy. Two refinements: the purchase request is rejected, not the quote (the quote stays OPEN until it expires), and the reason is that members drive the price.
+
+2. **Answered by the owner:** An idempotency key usually covers two similar requests, but because they come from different tabs they create different keys, and the losing request gets a 409.
+   **Corrected version:**
+   - `POST /policies` does not take an idempotency key in M4a. Idempotency keys arrive in M4b for payment endpoints and payout creation. The owner's point still stands: each tab would generate its own key, so a key could not stop this race anyway. That is why the protection sits on the **quote's state**, which both tabs share.
+   - **Mechanism 1, optimistic locking:** `Quote` has a `@Version` column. Both requests read the quote at the same version, and each tries to move it from `OPEN` to `USED`. The first commit increments the version; the second `update ... where version = ?` matches no row, and Hibernate throws `ObjectOptimisticLockingFailureException`.
+   - **Mechanism 2, the database:** `policies.quote_id` is `UNIQUE`, so even if the application check were bypassed, Postgres refuses a second policy row for the same quote (`DataIntegrityViolationException`).
+   - **The losing request gets 409.** Exactly which 409 depends on timing. During a true race the loser gets **409 `CONFLICT`** ("changed at the same time"), from either exception. If the winner had already committed before the loser read the quote, the loser sees it as `USED` and gets **409 `QUOTE_NOT_OPEN`**.
+
+   The owner's answer was right that the loser gets 409 and that per-tab idempotency keys would not help. It missed the two mechanisms that actually stop the second policy: the `@Version` optimistic lock on the quote and the unique key on `policies.quote_id`.
+
+3. **Answered by the owner:** After a database leak the attacker only gets ciphertext, but with the encryption key they can decrypt the values. Each encryption uses a fresh random IV, so each stored value looks different.
+   **Corrected version:**
+   - **Backup only:** `national_id` holds `v1:<keyId>:<base64(nonce || ciphertext || tag)>`. Without the key the attacker cannot read any ID, cannot tell whether two customers share one, and cannot change a value undetected. GCM's authentication tag makes decryption fail on any tampering. They do learn a little: which key id was used and roughly how long each ID is. The key is not in the backup: it comes from configuration (`policy.field-encryption.key-base64`, set from the environment), never from the database.
+   - **The other columns are not encrypted.** Name, date of birth, sex and phone are plain text, so a backup leak still exposes personal data. Only the national ID, the most sensitive identifier, is encrypted (D37). Backups therefore still need access control and encryption at rest of their own.
+   - **Backup and key:** every national ID can be decrypted. Rotation is what limits the damage: the key id in each value lets a new key encrypt new and re-saved values while the old key can still read old ones, and after re-encryption the leaked key is retired (ADR-012). This is why the key must live apart from the data.
+   - **Why equal IDs look different:** each encryption draws a fresh random 12-byte nonce (the IV) from `SecureRandom`. The same ID and key with a different nonce give completely different ciphertext. That stops an attacker matching equal values, or encrypting a guessed ID and looking for it. GCM requires the nonce to be unique per key: reusing a nonce with the same key breaks both confidentiality and authentication, which is why it is random and never a counter shared across instances.
+
+   The owner's answer was right on all three points. Additions: GCM also detects tampering; the key lives in configuration, apart from the backup; the other personal columns are still plain text; and key ids allow rotation after a key leak.
+
 ## Official documentation
 
 - JPA attribute converters (Jakarta Persistence): https://jakarta.ee/specifications/persistence/3.2/jakarta-persistence-spec-3.2#a3264
