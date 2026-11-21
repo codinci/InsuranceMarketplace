@@ -8,6 +8,7 @@ COPY auth-service ./auth-service
 COPY api-gateway ./api-gateway
 # The reactor lists every module, so the other modules must exist even though they are not built here.
 COPY policy-service ./policy-service
+COPY payment-service ./payment-service
 COPY infra-tests ./infra-tests
 RUN mvn -B -q -pl api-gateway -am package -DskipTests
 

@@ -165,6 +165,8 @@ services:
       AUTH_JWT_PRIVATE_KEY_BASE64: ${AUTH_JWT_PRIVATE_KEY_BASE64}
       AUTH_SEED_PLATFORM_ADMIN_EMAIL: ${AUTH_SEED_PLATFORM_ADMIN_EMAIL:-}
       AUTH_SEED_PLATFORM_ADMIN_PASSWORD: ${AUTH_SEED_PLATFORM_ADMIN_PASSWORD:-}
+      # policy-service presents this secret to get SERVICE tokens for internal calls (ADR-014).
+      AUTH_SERVICE_SECRET_POLICY_SERVICE: ${SERVICE_SECRET_POLICY_SERVICE}
     # Not published to the host: clients reach auth-service through the gateway (PLAN 12). Debug with
     # `docker compose exec` or through the gateway's routes.
     healthcheck:
@@ -185,6 +187,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # Topics are created by kafka-topics; the broker does not create them on demand.
+      kafka-topics:
+        condition: service_completed_successfully
     environment:
       JAVA_OPTS: "-Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/policy_db
@@ -196,6 +201,38 @@ services:
       # Encrypts personal data such as the national ID (D37, ADR-012). Without it the service refuses to start.
       POLICY_FIELD_KEY_BASE64: ${POLICY_FIELD_KEY_BASE64}
       POLICY_FIELD_KEY_ID: ${POLICY_FIELD_KEY_ID}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Purchase creates the premium in payment-service with a SERVICE token (M4b, ADR-014). Internal addresses only.
+      POLICY_PAYMENT_BASE_URL: http://payment-service:8080
+      POLICY_SERVICE_TOKEN_URL: http://auth-service:8080/internal/service-token
+      POLICY_SERVICE_AUTH_SECRET: ${SERVICE_SECRET_POLICY_SERVICE}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    mem_limit: 384m
+
+  # Mock checkout, payments and the payment ledger (PLAN 3, M4b). Not published: customers pay through the gateway,
+  # and policy-service calls /internal/payments directly on the compose network.
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+    profiles: [full]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-topics:
+        condition: service_completed_successfully
+    environment:
+      JAVA_OPTS: "-Xmx256m"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
+      SPRING_DATASOURCE_USERNAME: insurance
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      PAYMENT_JWT_JWK_SET_URI: http://auth-service:8080/.well-known/jwks.json
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -216,6 +253,8 @@ services:
       auth-service:
         condition: service_healthy
       policy-service:
+        condition: service_healthy
+      payment-service:
         condition: service_healthy
     environment:
       JAVA_OPTS: "-Xmx256m"
