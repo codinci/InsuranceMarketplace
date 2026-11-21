@@ -2,6 +2,7 @@ package com.example.insurance.events;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.insurance.events.claim.ClaimSubmitted;
 import com.example.insurance.events.payment.PremiumFailed;
 import com.example.insurance.events.payment.PremiumPaid;
 import com.example.insurance.events.policy.PolicyActivated;
@@ -152,5 +153,33 @@ class EventPayloadContractTest {
             POLICY_ID, "POL-X", 1, HOLDER_ID, LocalDate.now(), LocalDate.now(), null, null);
 
     assertThat(payload.members()).isEmpty();
+  }
+
+  @Test
+  void claimSubmittedRoundTripsAndKeepsMoneyExact() {
+    EventEnvelope<ClaimSubmitted> event =
+        envelope(
+            "ClaimSubmitted",
+            new ClaimSubmitted(
+                UUID.fromString("c1a1a1a1-2222-4333-8444-555555555555"),
+                "CLM-ACACIA-2026-000001",
+                POLICY_ID,
+                "MEM-ACACIA-2026-000001-0",
+                "OUTPATIENT",
+                "OP-CONSULT",
+                "ILLNESS",
+                LocalDate.of(2027, 1, 15),
+                new BigDecimal("3000.00"),
+                "KES",
+                Instant.parse("2027-01-16T08:00:00Z")));
+
+    EventEnvelope<ClaimSubmitted> readBack =
+        roundTrip(event, new TypeReference<EventEnvelope<ClaimSubmitted>>() {});
+
+    assertThat(readBack.payload().amountClaimed()).isEqualByComparingTo("3000.00");
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"claimNumber\":\"CLM-ACACIA-2026-000001\"")
+        .contains("\"incidentDate\":\"2027-01-15\"")
+        .contains("\"amountClaimed\":3000.00");
   }
 }
