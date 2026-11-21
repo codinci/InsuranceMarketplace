@@ -50,3 +50,7 @@
 3. The circuit breaker is open. A customer asks for a policy that is in the read model. Do they get the policy or a 503, and why?
 4. Why is the retry placed outside the breaker in `PolicyClient.fetch`, and what would change if it were inside?
 5. Why is the `activation` payload stored whole, instead of only the members and terms columns?
+
+## Corrected answers
+
+**1.** claim-service ignores the `PolicyActivated` with version 2, because the stored row already holds version 3 from the `PolicyCancelled`. The rule is "apply only if the incoming `policyVersion` is higher than the stored one", so 2 is not higher than 3 and the row stays `CANCELLED`. This is correct even though the activation was first in time, because policy-service increases the version on every change: a higher version means a later change, whatever order the messages arrive in. The same rule covers redelivery (an equal version changes nothing) and an activation that arrives after its cancellation.
