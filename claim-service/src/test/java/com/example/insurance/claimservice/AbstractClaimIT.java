@@ -50,6 +50,13 @@ public abstract class AbstractClaimIT {
   }
 
   @DynamicPropertySource
+  static void storageProperties(DynamicPropertyRegistry registry) {
+    // Test-only credentials. The S3 client refuses to start without some (fail fast in production).
+    registry.add("claim.storage.access-key", () -> "test-only-access");
+    registry.add("claim.storage.secret-key", () -> "test-only-secret");
+  }
+
+  @DynamicPropertySource
   static void policyServiceProperties(DynamicPropertyRegistry registry) {
     registry.add("claim.policy-service.base-url", POLICY_SERVICE::baseUrl);
     registry.add(
@@ -104,6 +111,50 @@ public abstract class AbstractClaimIT {
             new PolicyActivated.MemberTerms(
                 "M-1", "PRINCIPAL", "MALE", "Amina", "Test", LocalDate.of(1989, 1, 1), false)),
         terms);
+  }
+
+  /**
+   * Terms with one outpatient tree (OUTPATIENT, with OP-CONSULT needing a RECEIPT) and a 30-day
+   * illness waiting rule. Claims in the claim tests run against this.
+   */
+  protected static TermsSnapshot claimTerms() {
+    TermsSnapshot.BenefitTerms consult =
+        new TermsSnapshot.BenefitTerms(
+            "OP-CONSULT", "SERVICE", null, null, List.of("RECEIPT"), false, List.of());
+    TermsSnapshot.BenefitTerms outpatient =
+        new TermsSnapshot.BenefitTerms(
+            "OUTPATIENT", "CATEGORY", null, null, List.of(), false, List.of(consult));
+    return new TermsSnapshot(
+        1,
+        "ACACIA",
+        UUID.fromString("00000000-0000-4000-8000-00000000cafe"),
+        "STANDARD",
+        1,
+        "KES",
+        "NEXT_BIRTHDAY",
+        List.of(new TermsSnapshot.ModuleTerms("OUTPATIENT", "OP-40K", outpatient)),
+        List.of(
+            new TermsSnapshot.WaitingRuleTerms(
+                "GENERAL_ILLNESS", 30, 0, "ILLNESS", null, List.of(), List.of())),
+        List.of(),
+        90,
+        null);
+  }
+
+  /** An activation with the given terms and cover dates, for a member numbered M-1. */
+  protected static PolicyActivated activatedWithTerms(
+      UUID policyId, UUID holder, long version, LocalDate coverStart, LocalDate coverEnd) {
+    return new PolicyActivated(
+        policyId,
+        "POL-ACACIA-2026-" + policyId.toString().substring(0, 6),
+        version,
+        holder,
+        coverStart,
+        coverEnd,
+        List.of(
+            new PolicyActivated.MemberTerms(
+                "M-1", "PRINCIPAL", "MALE", "Amina", "Test", LocalDate.of(1989, 1, 1), false)),
+        claimTerms());
   }
 
   protected static PolicyCancelled cancelled(UUID policyId, long version) {

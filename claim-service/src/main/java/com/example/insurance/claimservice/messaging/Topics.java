@@ -4,6 +4,7 @@ package com.example.insurance.claimservice.messaging;
 public final class Topics {
 
   public static final String POLICY_EVENTS = "policy.events";
+  public static final String CLAIM_EVENTS = "claim.events";
 
   private Topics() {
     // Constants only; not instantiable.

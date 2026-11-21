@@ -40,6 +40,12 @@ Ideas that are outside the current milestone (CLAUDE.md workflow rule 8, PLAN 21
 | M4b | Outbox and inbox tables grow forever | Published outbox rows and inbox rows are never deleted. Add a cleanup job with the other lifecycle jobs (M8), keeping inbox rows longer than any redelivery window. |
 | M4b | Outbox and inbox code is copied in two services | Resolved in M5a: `common-messaging` (ADR-013). |
 | M5a | The SERVICE token client is copied in policy-service and claim-service | `ServiceTokens` and the breaker/retry config are near-identical. Extract them into a shared module with the first further caller, or with the client-credentials change (ADR-014). |
+| M5b | Orphaned document objects | A failed database write after an upload leaves an object nothing points at. The lifecycle job (M8) removes them (ADR-016). |
+| M5b | Terms exclusions are not checked at submission | The snapshot carries exclusions as strings, but no hard check reads them yet. Decide the mapping with adjudication (M6). |
+| M5b | `preAuthRequired` is stored only | As PLAN 2 says; no check or flag uses it. |
+| M5b | Per-package coverage gates are not in the POM | CLAUDE asks 90% line and 85% branch on `rules` and `statemachine`. Only the 70% bundle rule is enforced today; add the package rules once the numbers are measured in CI. |
+| M5b | No `ClaimRejected` event | Rejections at submission are visible on the claim only (ADR-016). Add the event with M6 review, if the notification service needs it. |
+| M5b | Soft flags and review states | `FLAG`, `UNDER_REVIEW`, `INFO_REQUESTED` and the payout states are in the machine but not reached yet (M6, M7). |
 | M5a | The fallback has no cache or bulkhead | Every read-model miss calls policy-service, bounded only by the breaker. Fine at this scale; revisit if a customer can trigger many misses (M9). |
 | M4b | Internal calls use a plain `RestClient` | Spring Boot 4 auto-configures `RestClient.Builder` only with its separate restclient starter, so the payment and token clients are built directly and miss Boot's metrics and tracing hooks. Revisit with observability (M8/M9). |
 | M4b | The mock checkout accepts `simulate=FAIL` from any customer | Fine for a mock provider. The field must not exist once a real provider is added. |
