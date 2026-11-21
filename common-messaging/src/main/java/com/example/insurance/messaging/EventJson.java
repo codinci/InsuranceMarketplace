@@ -7,8 +7,8 @@ import tools.jackson.databind.JavaType;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Reads and writes event envelopes with one mapper for every service. Amounts always read as {@code
- * BigDecimal}, never as {@code double} (CLAUDE.md money rule).
+ * Reads and writes event envelopes and stored payloads with one mapper for every service. Amounts
+ * always read as {@code BigDecimal}, never as {@code double} (CLAUDE.md money rule).
  */
 public final class EventJson {
 
@@ -22,6 +22,16 @@ public final class EventJson {
   /** The envelope as JSON, exactly as it is sent to Kafka. */
   public static String write(Object envelope) {
     return MAPPER.writeValueAsString(envelope);
+  }
+
+  /** Any value as JSON, for a payload stored in a jsonb column. */
+  public static String writeValue(Object value) {
+    return MAPPER.writeValueAsString(value);
+  }
+
+  /** A value stored as JSON (the inverse of {@link #writeValue}). */
+  public static <T> T read(String json, Class<T> type) {
+    return MAPPER.readValue(json, type);
   }
 
   /** The {@code type} of a message, read before choosing the payload class. */

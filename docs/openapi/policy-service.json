@@ -16,6 +16,9 @@
     "name" : "Quotes",
     "description" : "Server-priced quotes, valid for 30 days. CUSTOMER only."
   }, {
+    "name" : "Internal",
+    "description" : "Service-to-service endpoints (SERVICE token only). Not published through the gateway."
+  }, {
     "name" : "Catalogue",
     "description" : "Browse insurers and plans. Public: no token needed (PLAN 4)."
   }, {
@@ -738,12 +741,74 @@
         } ]
       }
     },
+    "/internal/policies/{policyId}" : {
+      "get" : {
+        "tags" : [ "Internal" ],
+        "summary" : "Read a policy for claim-service",
+        "description" : "Returns the policy with its frozen terms and members. Only the claim-service token may call it (ADR-014).",
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "name" : "policyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The policy",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InternalPolicyResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InternalPolicyResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not the claim-service token (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InternalPolicyResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such policy (POLICY_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InternalPolicyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
     "/api/v1/quotes/{quoteId}" : {
       "get" : {
         "tags" : [ "Quotes" ],
         "summary" : "Get one of my quotes",
         "description" : "Status is OPEN, USED or EXPIRED.",
-        "operationId" : "get_1",
+        "operationId" : "get_2",
         "parameters" : [ {
           "name" : "quoteId",
           "in" : "path",
@@ -805,7 +870,7 @@
         "tags" : [ "Policies" ],
         "summary" : "Get one of my policies",
         "description" : "With members, member numbers, the premium breakdown and the frozen terms.",
-        "operationId" : "get_2",
+        "operationId" : "get_3",
         "parameters" : [ {
           "name" : "policyId",
           "in" : "path",
@@ -1866,6 +1931,78 @@
           "plan" : {
             "$ref" : "#/components/schemas/AdminPlanResponse",
             "description" : "The stored plan version; null for a dry run."
+          }
+        }
+      },
+      "InternalPolicyResponse" : {
+        "type" : "object",
+        "description" : "A policy as claim-service needs it. SERVICE token only, never routed.",
+        "properties" : {
+          "policyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "policyNumber" : {
+            "type" : "string"
+          },
+          "insurerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "holderUserId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "coverStart" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "coverEnd" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "policyVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "members" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MemberTerms"
+            }
+          },
+          "termsSnapshot" : {
+            "$ref" : "#/components/schemas/TermsSnapshot"
+          }
+        }
+      },
+      "MemberTerms" : {
+        "type" : "object",
+        "properties" : {
+          "memberNumber" : {
+            "type" : "string"
+          },
+          "relationship" : {
+            "type" : "string"
+          },
+          "sex" : {
+            "type" : "string"
+          },
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "dateOfBirth" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "student" : {
+            "type" : "boolean"
           }
         }
       },
