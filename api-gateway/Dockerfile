@@ -4,6 +4,7 @@ WORKDIR /workspace
 COPY pom.xml ./
 COPY common-events ./common-events
 COPY common-starter ./common-starter
+COPY common-messaging ./common-messaging
 COPY auth-service ./auth-service
 COPY api-gateway ./api-gateway
 # The reactor lists every module, so the other modules must exist even though they are not built here.

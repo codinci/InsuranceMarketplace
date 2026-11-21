@@ -1,4 +1,4 @@
-package com.example.insurance.policyservice.policy.messaging;
+package com.example.insurance.messaging;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -86,5 +86,13 @@ public class OutboxEvent {
 
   public String getPayload() {
     return payload;
+  }
+
+  public Instant getPublishedAt() {
+    return publishedAt;
+  }
+
+  public int getAttempts() {
+    return attempts;
   }
 }

@@ -1,4 +1,4 @@
-package com.example.insurance.paymentservice.messaging;
+package com.example.insurance.messaging;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
@@ -20,15 +19,14 @@ import org.springframework.transaction.support.TransactionOperations;
  * acknowledged it, so a crash means a resend, never a loss. Consumers handle the resend through
  * their inbox.
  */
-@Component
 public class OutboxRelay {
-
-  private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
 
   /** Kafka header with the event type, so a consumer can route before parsing (ADR-013). */
   public static final String EVENT_TYPE_HEADER = "eventType";
 
-  private static final int BATCH_SIZE = 100;
+  static final int BATCH_SIZE = 100;
+
+  private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
   private static final long SEND_TIMEOUT_SECONDS = 10;
 
   private final OutboxEventRepository outbox;
@@ -47,12 +45,12 @@ public class OutboxRelay {
     this.clock = clock;
   }
 
-  @Scheduled(fixedDelayString = "${payment.outbox.relay-delay-ms:1000}")
+  @Scheduled(fixedDelayString = "${messaging.outbox.relay-delay-ms:1000}")
   public void publishPending() {
     transactions.executeWithoutResult(status -> publishBatch());
   }
 
-  /** Stops at the first failure so later events of the same policy are not sent out of order. */
+  /** Stops at the first failure so later events of the same aggregate are not sent out of order. */
   void publishBatch() {
     for (OutboxEvent event : outbox.lockUnpublished(BATCH_SIZE)) {
       try {
@@ -70,7 +68,7 @@ public class OutboxRelay {
     }
   }
 
-  private static ProducerRecord<String, String> record(OutboxEvent event) {
+  static ProducerRecord<String, String> record(OutboxEvent event) {
     return new ProducerRecord<>(
         event.getTopic(),
         null,

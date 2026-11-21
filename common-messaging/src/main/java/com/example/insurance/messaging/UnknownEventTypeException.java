@@ -1,4 +1,4 @@
-package com.example.insurance.paymentservice.messaging;
+package com.example.insurance.messaging;
 
 /**
  * A message whose {@code type} this service does not know. Retrying cannot fix it, so the error

@@ -1,4 +1,4 @@
-package com.example.insurance.paymentservice.messaging;
+package com.example.insurance.messaging;
 
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

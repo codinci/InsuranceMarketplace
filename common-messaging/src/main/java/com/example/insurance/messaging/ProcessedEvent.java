@@ -1,4 +1,4 @@
-package com.example.insurance.policyservice.policy.messaging;
+package com.example.insurance.messaging;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,5 +30,13 @@ public class ProcessedEvent {
     this.eventId = eventId;
     this.consumer = consumer;
     this.processedAt = processedAt;
+  }
+
+  public UUID getEventId() {
+    return eventId;
+  }
+
+  public String getConsumer() {
+    return consumer;
   }
 }

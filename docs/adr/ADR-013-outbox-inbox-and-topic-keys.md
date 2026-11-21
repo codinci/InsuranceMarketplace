@@ -27,4 +27,15 @@
 - Every event is at least once. The consumer's inbox row is the only guarantee of "once effect", so every consumer must write its inbox row in the same transaction as its effect.
 - Events are published a little after the commit (the relay interval, about one second). Tests use a short interval and wait for the message.
 - Old `published_at` rows grow the table. A cleanup belongs with the lifecycle jobs (M8).
-- The outbox and inbox code is copied into each service in M4b. It is extracted into a shared module when claim-service (M5) becomes the third user. Until then the copies may differ in small ways, and that is acceptable only until the extraction.
+- The outbox and inbox code was copied into each service in M4b and extracted in M5a, when claim-service became the third user (see the amendment below).
+
+## Amendment (M5a, 2026-11-21): the shared `common-messaging` module
+
+The plumbing now lives in one module, `common-messaging` (package `com.example.insurance.messaging`), used by payment-, policy- and claim-service:
+
+- **In the module:** the `OutboxEvent` and `ProcessedEvent` entities and their repositories, `OutboxWriter`, the scheduled `OutboxRelay` (with the `eventType` header), `Inbox` (`alreadyApplied`, `markApplied`), `EventJson` (one mapper, amounts as `BigDecimal`), `UnknownEventTypeException` and the dead-letter error handler.
+- **Wiring:** `MessagingAutoConfiguration`, loaded by Spring Boot from `META-INF/spring/...AutoConfiguration.imports`. It adds its package to the packages Spring Boot scans for JPA entities and repositories (`@AutoConfigurationPackage`) instead of using `@EntityScan`, which would replace each service's own scanning.
+- **Settings:** `messaging.outbox.relay-delay-ms` (default 1000) and `messaging.consumer-name` (default `spring.application.name`, recorded with each inbox row).
+- **Stays in each service:** its tables (`outbox_events`, `processed_events`, created by the service's own Flyway migration in its own database), its `Topics` constants, its listeners and its business code.
+
+Nothing on the wire or in the tables changed.

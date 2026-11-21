@@ -1,4 +1,4 @@
-package com.example.insurance.policyservice.policy.messaging;
+package com.example.insurance.messaging;
 
 import java.util.List;
 import java.util.UUID;

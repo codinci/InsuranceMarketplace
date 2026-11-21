@@ -3,13 +3,13 @@ package com.example.insurance.paymentservice.messaging;
 import com.example.insurance.events.EventEnvelope;
 import com.example.insurance.events.EventTypes;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.messaging.EventJson;
+import com.example.insurance.messaging.UnknownEventTypeException;
 import com.example.insurance.paymentservice.service.PaymentExpiryService;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.type.TypeReference;
 
 /**
  * Reads {@code policy.events} and reacts to cancellations: a policy cancelled for not being paid
@@ -29,11 +29,9 @@ public class PolicyEventListener {
 
   @KafkaListener(topics = Topics.POLICY_EVENTS)
   public void onPolicyEvent(String message) {
-    String type = EventJson.MAPPER.readValue(message, EventHeader.class).type();
+    String type = EventJson.typeOf(message);
     if (EventTypes.POLICY_CANCELLED.equals(type)) {
-      EventEnvelope<PolicyCancelled> event =
-          EventJson.MAPPER.readValue(
-              message, new TypeReference<EventEnvelope<PolicyCancelled>>() {});
+      EventEnvelope<PolicyCancelled> event = EventJson.envelope(message, PolicyCancelled.class);
       expiry.onPolicyCancelled(event.eventId(), event.payload());
     } else if (EventTypes.POLICY_ACTIVATED.equals(type)) {
       LOG.debug("PolicyActivated is not used by payment-service; skipped.");
@@ -41,8 +39,4 @@ public class PolicyEventListener {
       throw new UnknownEventTypeException(type);
     }
   }
-
-  /** Only the type, so the right payload class can be chosen before reading the rest. */
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  record EventHeader(String type) {}
 }

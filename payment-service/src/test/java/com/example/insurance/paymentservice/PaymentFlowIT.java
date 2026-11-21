@@ -24,7 +24,7 @@ import org.springframework.test.web.servlet.MvcResult;
  * The payment journey through HTTP, the database and Kafka: creation, paying, the outbox, the
  * inbox, ownership and the dead-letter route (PLAN 17, M4b).
  */
-@SpringBootTest(properties = "payment.outbox.relay-delay-ms=200")
+@SpringBootTest(properties = "messaging.outbox.relay-delay-ms=200")
 @AutoConfigureMockMvc
 @Import(TestSecurityConfig.class)
 class PaymentFlowIT extends AbstractPaymentIT {

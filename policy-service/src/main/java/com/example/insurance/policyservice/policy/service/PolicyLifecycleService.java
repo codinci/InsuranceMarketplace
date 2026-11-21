@@ -6,16 +6,14 @@ import com.example.insurance.events.payment.PremiumPaid;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
 import com.example.insurance.events.policy.TermsSnapshot;
+import com.example.insurance.messaging.Inbox;
+import com.example.insurance.messaging.OutboxWriter;
 import com.example.insurance.policyservice.config.BusinessCalendar;
 import com.example.insurance.policyservice.policy.domain.Policy;
 import com.example.insurance.policyservice.policy.domain.PolicyMember;
-import com.example.insurance.policyservice.policy.messaging.OutboxWriter;
-import com.example.insurance.policyservice.policy.messaging.ProcessedEvent;
-import com.example.insurance.policyservice.policy.messaging.ProcessedEventRepository;
 import com.example.insurance.policyservice.policy.messaging.Topics;
 import com.example.insurance.policyservice.policy.repository.PolicyMemberRepository;
 import com.example.insurance.policyservice.policy.repository.PolicyRepository;
-import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -39,30 +37,27 @@ public class PolicyLifecycleService {
 
   private final PolicyRepository policies;
   private final PolicyMemberRepository members;
-  private final ProcessedEventRepository processed;
+  private final Inbox inbox;
   private final OutboxWriter outbox;
-  private final Clock clock;
   private final BusinessCalendar calendar;
 
   public PolicyLifecycleService(
       PolicyRepository policies,
       PolicyMemberRepository members,
-      ProcessedEventRepository processed,
+      Inbox inbox,
       OutboxWriter outbox,
-      Clock clock,
       BusinessCalendar calendar) {
     this.policies = policies;
     this.members = members;
-    this.processed = processed;
+    this.inbox = inbox;
     this.outbox = outbox;
-    this.clock = clock;
     this.calendar = calendar;
   }
 
   /** PENDING_PAYMENT to ACTIVE, and {@code PolicyActivated} with the frozen terms. */
   @Transactional
   public void onPremiumPaid(UUID eventId, PremiumPaid event) {
-    if (alreadyApplied(eventId)) {
+    if (inbox.alreadyApplied(eventId)) {
       return;
     }
     policies
@@ -70,13 +65,13 @@ public class PolicyLifecycleService {
         .ifPresentOrElse(
             policy -> activateIfPayable(policy, event),
             () -> LOG.warn("PremiumPaid {} is for an unknown policy; ignored.", eventId));
-    markApplied(eventId);
+    inbox.markApplied(eventId);
   }
 
   /** The policy keeps waiting; the customer may pay again until the unpaid deadline. */
   @Transactional
   public void onPremiumFailed(UUID eventId, PremiumFailed event) {
-    if (alreadyApplied(eventId)) {
+    if (inbox.alreadyApplied(eventId)) {
       return;
     }
     LOG.info(
@@ -84,7 +79,7 @@ public class PolicyLifecycleService {
         event.paymentId(),
         event.reason(),
         event.policyId());
-    markApplied(eventId);
+    inbox.markApplied(eventId);
   }
 
   /**
@@ -159,17 +154,5 @@ public class PolicyLifecycleService {
                     m.isStudent()))
             .toList(),
         PolicyJson.read(policy.getTermsSnapshot(), TermsSnapshot.class));
-  }
-
-  private boolean alreadyApplied(UUID eventId) {
-    if (processed.existsById(eventId)) {
-      LOG.debug("Event {} already applied; skipped.", eventId);
-      return true;
-    }
-    return false;
-  }
-
-  private void markApplied(UUID eventId) {
-    processed.save(new ProcessedEvent(eventId, Topics.CONSUMER_NAME, clock.instant()));
   }
 }
