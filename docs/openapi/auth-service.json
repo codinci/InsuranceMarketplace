@@ -13,6 +13,9 @@
     "name" : "Auth",
     "description" : "Registration, login, token refresh and logout for policyholders and staff."
   }, {
+    "name" : "Internal",
+    "description" : "Service-to-service endpoints. Not published through the gateway."
+  }, {
     "name" : "Keys",
     "description" : "Public signing keys for verifying access tokens."
   }, {
@@ -20,6 +23,56 @@
     "description" : "Creating ADJUSTER and ADMIN accounts. Insurer admins are limited to their own insurer."
   } ],
   "paths" : {
+    "/internal/service-token" : {
+      "post" : {
+        "tags" : [ "Internal" ],
+        "summary" : "Get a service token",
+        "description" : "Trades a service name and its secret for a five-minute SERVICE token. No user token is needed.",
+        "operationId" : "serviceToken",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ServiceTokenRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Token issued",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServiceTokenResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Validation failed (code VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServiceTokenResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unknown service or wrong secret (INVALID_SERVICE_CREDENTIALS)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServiceTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register" : {
       "post" : {
         "tags" : [ "Auth" ],
@@ -333,6 +386,39 @@
   },
   "components" : {
     "schemas" : {
+      "ServiceTokenRequest" : {
+        "type" : "object",
+        "description" : "A calling service's name and its secret, from the environment of both services.",
+        "properties" : {
+          "service" : {
+            "type" : "string",
+            "example" : "policy-service",
+            "minLength" : 1
+          },
+          "secret" : {
+            "type" : "string",
+            "description" : "The shared secret. Never logged.",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "secret", "service" ]
+      },
+      "ServiceTokenResponse" : {
+        "type" : "object",
+        "description" : "A short-lived SERVICE token for calls to another service's /internal endpoints.",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "tokenType" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "RegisterRequest" : {
         "type" : "object",
         "description" : "Self-registration for a policyholder.",

@@ -38,6 +38,8 @@ public class SecurityConfig {
                     "/api/v1/auth/refresh",
                     "/api/v1/auth/logout")
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, "/internal/service-token")
+                .permitAll()
                 .requestMatchers(
                     HttpMethod.GET,
                     "/.well-known/jwks.json",
