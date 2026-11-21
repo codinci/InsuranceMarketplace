@@ -34,6 +34,15 @@ public final class EventJson {
     return MAPPER.readValue(json, type);
   }
 
+  /**
+   * The envelope's {@code payload} exactly as received, unknown fields included. A consumer that
+   * stores the payload keeps it whole this way, instead of what its own record happens to model.
+   * Decimals keep their scale.
+   */
+  public static String payloadJson(String message) {
+    return MAPPER.writeValueAsString(MAPPER.readTree(message).get("payload"));
+  }
+
   /** The {@code type} of a message, read before choosing the payload class. */
   public static String typeOf(String message) {
     return MAPPER.readValue(message, Header.class).type();

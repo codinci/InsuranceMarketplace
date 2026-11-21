@@ -29,7 +29,11 @@ public class PolicyEventListener {
     String type = EventJson.typeOf(message);
     if (EventTypes.POLICY_ACTIVATED.equals(type)) {
       EventEnvelope<PolicyActivated> event = EventJson.envelope(message, PolicyActivated.class);
-      snapshots.onActivated(event.eventId(), UUID.fromString(event.insurerId()), event.payload());
+      snapshots.onActivated(
+          event.eventId(),
+          UUID.fromString(event.insurerId()),
+          event.payload(),
+          EventJson.payloadJson(message));
     } else if (EventTypes.POLICY_CANCELLED.equals(type)) {
       EventEnvelope<PolicyCancelled> event = EventJson.envelope(message, PolicyCancelled.class);
       snapshots.onCancelled(event.eventId(), UUID.fromString(event.insurerId()), event.payload());

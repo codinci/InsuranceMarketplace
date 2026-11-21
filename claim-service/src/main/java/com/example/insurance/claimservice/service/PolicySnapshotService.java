@@ -4,7 +4,6 @@ import com.example.insurance.claimservice.domain.PolicySnapshot;
 import com.example.insurance.claimservice.repository.PolicySnapshotRepository;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
-import com.example.insurance.messaging.EventJson;
 import com.example.insurance.messaging.Inbox;
 import java.time.Clock;
 import java.util.UUID;
@@ -34,7 +33,7 @@ public class PolicySnapshotService {
   }
 
   @Transactional
-  public void onActivated(UUID eventId, UUID insurerId, PolicyActivated event) {
+  public void onActivated(UUID eventId, UUID insurerId, PolicyActivated event, String payloadJson) {
     if (inbox.alreadyApplied(eventId)) {
       return;
     }
@@ -43,8 +42,7 @@ public class PolicySnapshotService {
             .findById(event.policyId())
             .orElseGet(
                 () -> PolicySnapshot.unseen(event.policyId(), event.policyNumber(), insurerId));
-    boolean applied =
-        snapshot.applyActivated(event, insurerId, EventJson.writeValue(event), clock.instant());
+    boolean applied = snapshot.applyActivated(event, insurerId, payloadJson, clock.instant());
     if (applied) {
       snapshots.save(snapshot);
     } else {

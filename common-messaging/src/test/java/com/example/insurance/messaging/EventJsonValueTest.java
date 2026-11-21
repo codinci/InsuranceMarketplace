@@ -27,4 +27,15 @@ class EventJsonValueTest {
     assertThat(read.amount()).isEqualByComparingTo("0.10");
     assertThat(read.amount().scale()).isEqualTo(2);
   }
+
+  @Test
+  void payloadJsonKeepsUnknownFieldsAndDecimalScale() {
+    String message =
+        "{\"eventId\":\"x\",\"type\":\"T\",\"payload\":{\"amount\":10.00,\"future\":{\"a\":[1,2]}}}";
+
+    String payload = EventJson.payloadJson(message);
+
+    assertThat(payload).contains("\"future\":{\"a\":[1,2]}").contains("10.00");
+    assertThat(payload).doesNotContain("eventId");
+  }
 }

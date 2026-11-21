@@ -2,15 +2,21 @@ package com.example.insurance.claimservice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.insurance.claimservice.repository.PolicySnapshotRepository;
 import com.example.insurance.claimservice.support.TestSecurityConfig;
 import com.example.insurance.claimservice.support.TestTokens;
+import com.example.insurance.events.EventEnvelope;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * The policy read model end to end (PLAN 11, M5a): events from Kafka, the duplicate and
@@ -38,6 +44,37 @@ class ClaimPolicyIT extends AbstractClaimIT {
     MvcResult list = getWith(mine, "/api/v1/claims/policies");
     List<String> ids = read(list, "$.content[*].policyId");
     assertThat(ids).contains(policyId.toString());
+  }
+
+  @Autowired private PolicySnapshotRepository repository;
+
+  @Test
+  void theActivationPayloadIsStoredAsReceivedIncludingUnknownFields() throws Exception {
+    UUID policyId = UUID.randomUUID();
+    UUID holder = UUID.randomUUID();
+    ObjectNode message =
+        (ObjectNode)
+            json.valueToTree(
+                new EventEnvelope<>(
+                    UUID.randomUUID(),
+                    "PolicyActivated",
+                    1,
+                    Instant.now(),
+                    policyId.toString(),
+                    INSURER.toString(),
+                    "it-test",
+                    activated(policyId, holder, 2)));
+    // A field a newer policy-service might add: this version does not model it.
+    ((ObjectNode) message.get("payload")).put("futureField", "kept");
+    kafka
+        .send("policy.events", policyId.toString(), json.writeValueAsString(message))
+        .get(10, TimeUnit.SECONDS);
+
+    awaitStatus(TestTokens.customer(holder), policyId, "ACTIVE");
+
+    // jsonb normalises whitespace and key order, so compare the parsed value, not the text.
+    String stored = repository.findById(policyId).orElseThrow().getActivation();
+    assertThat(json.readTree(stored).path("futureField").toString()).isEqualTo("\"kept\"");
   }
 
   @Test
