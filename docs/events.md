@@ -118,6 +118,25 @@ In M4b the only producer is the unpaid-policy job: a policy still `PENDING_PAYME
 
 **Consumer: claim-service (M5a, ADR-015).** Both events feed claim-service's policy read model. A change applies only when its `policyVersion` is higher than the stored one, so a redelivery or a late older event changes nothing. A `PolicyCancelled` that arrives before its `PolicyActivated` leaves a row with no holder; the later activation is then not newer and is ignored. Unknown `type` values go to `policy.events.DLT`.
 
+### ClaimSubmitted v1 (`claim.events`, claim-service, M5b)
+
+Sent when a claim passes the hard checks and is accepted for review. A claim the checks reject is not announced: its rejection is visible on the claim and in its history (ADR-016). The aggregate id is the claim id; the envelope's `insurerId` is the claim's insurer.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `claimId` | UUID | The claim |
+| `claimNumber` | string | `CLM-<insurerCode>-<year>-<sequence>` |
+| `policyId` | UUID | The policy the claim is against |
+| `memberId` | string | The member's number on the policy |
+| `moduleCode`, `benefitCode` | string | The benefit claimed |
+| `cause` | `ACCIDENT` or `ILLNESS` | Why the member needs the benefit |
+| `incidentDate` | date | The day of the incident |
+| `amountClaimed` | decimal | Amount claimed; `NUMERIC(19,2)`, never a float |
+| `currency` | string | ISO code, from the policy's terms |
+| `submittedAt` | instant | When the claim was submitted |
+
+Contract test: `EventPayloadContractTest.claimSubmittedRoundTripsAndKeepsMoneyExact`.
+
 ## Policy terms snapshot v1
 
 `TermsSnapshot` (`common-events`, package `com.example.insurance.events.policy`, ADR-011) is the terms a policy was sold with. policy-service stores it on every policy from M4a and returns it from `GET /api/v1/policies/{id}`. From M4b, `PolicyActivated` carries it to claim-service, which interprets it with the semantics in docs/catalogue-schema.md.

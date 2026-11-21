@@ -158,6 +158,18 @@ Without it, the fallback answers 503 `POLICY_UNAVAILABLE` whenever the read mode
 
 **A 503 with Retry-After: 30.** policy-service did not answer (down, timing out, or refusing the token). The circuit breaker opens after repeated failures and stays open for 30 seconds, so customers get the fast 503 until it closes again. The log line "policy-service lookup failed" shows the cause.
 
+## Claims and documents (M5b)
+
+**Storage.** Claim documents live in the private `insurance-documents` bucket on SeaweedFS, under random keys (`claims/<uuid>`). claim-service uses `S3_ACCESS_KEY` and `S3_SECRET_KEY` from `.env`, the same pair the bucket is created with, and refuses to start without them. Uploads go to `http://seaweedfs:8333` on the compose network. Download links are presigned against `CLAIM_STORAGE_PUBLIC_ENDPOINT` (the host's `localhost:8333` by default) and expire after five minutes.
+
+**Limits.** A document is 10 MB at most and must be a PDF, JPEG or PNG whose first bytes match its declared type. A claim holds at most 10 documents, and only a draft takes new ones.
+
+**A claim the checks reject.** `POST /api/v1/claims/{id}/submit` runs the hard checks at once. A failing claim is `REJECTED` with `rejectionReason` set to the first failing rule (for example `POLICY_IN_FORCE`, `WAITING_PERIOD_ELAPSED` or `REQUIRED_DOCUMENTS`). The response lists every check. The history shows the rejection with the actor `SYSTEM`. Nothing is sent to `claim.events` for a rejected claim.
+
+**Looking at a submission.** The accepted claims appear on `claim.events` as `ClaimSubmitted`, after the outbox relay has sent them. Unsent rows wait in `outbox_events` as before.
+
+**Orphaned documents.** If the database write fails after an upload, the object stays in the bucket with no row pointing at it. Nothing reads it; the lifecycle job (M8) will remove such objects.
+
 ## Troubleshooting
 
 - **A service shows "unhealthy" or "starting" for a long time:** `docker compose logs <service>`. Kafka and SeaweedFS can take 30-60 seconds on first start.
