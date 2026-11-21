@@ -65,6 +65,19 @@
 2. A customer clicks "Pay" twice, very fast, with the same `Idempotency-Key`. A minute later, impatient, they retry with a new key. How many charges happen, and what does each of the three requests get back?
 3. payment-service is down for two minutes and customers keep pressing "Buy". Describe what the first purchase experiences, what a purchase twenty seconds later experiences, and what happens once payment-service is back. What state are the quotes in throughout?
 
+## Corrected answers
+
+1. **Answered by the owner:** On crashing before the relay, the event sits unpublished until the relay restarts it. If the relay sent it but crashed before marking the row published, the relay restarts, sees it as unpublished and sends it again. The policy activates only once because the consumer is idempotent.
+   **Corrected version:** right on all three points. A complete answer adds the following:
+   - **Where the event waits.** The `PremiumPaid` row is in payment-service's `outbox_events` with `published_at` null. It was committed in the same transaction as the payment, so it cannot be lost: both exist or neither does. Nothing "restarts the event". When payment-service starts again, the scheduled relay finds unsent rows on its next run (about a second later) and sends them.
+   - **What the customer sees meanwhile.** The pay request already answered 200 `SUCCEEDED`, so the payment shows as paid, but the policy stays `PENDING_PAYMENT` until the event is delivered and applied. The gap lasts as long as the outage. If it lasted more than 24 hours, the unpaid-policy job would cancel the policy first, and the late `PremiumPaid` would be logged and ignored. That is the reconciliation case in the parking lot (M8).
+   - **Why the resend is harmless.** The resent message carries the **same `eventId`**, because the outbox row stores the whole envelope and the relay sends it unchanged. policy-service checks its inbox (`processed_events`) for that id and records it in the same transaction as the activation. The second delivery finds the id and does nothing, so there is one activation and one `PolicyActivated`. A second guard backs this up: activation applies only to a policy that is still `PENDING_PAYMENT`.
+   - **The general rule.** The outbox gives at-least-once delivery, never exactly-once. The inbox turns "at least once" into "effect once".
+
+2. *Not answered yet.*
+
+3. *Not answered yet.*
+
 ## Official documentation
 
 - Spring for Apache Kafka, reference: https://docs.spring.io/spring-kafka/reference/
