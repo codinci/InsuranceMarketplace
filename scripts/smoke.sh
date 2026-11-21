@@ -80,8 +80,9 @@ step "/internal is never published, even with a valid token"
 call 404 "$BASE/internal/policies/1" -H "Authorization: Bearer $ACCESS" > /dev/null && echo "internal path not found" || fail "internal path not found"
 call 404 "$BASE/internal/payments" -X POST -H "Authorization: Bearer $ACCESS" > /dev/null && echo "internal payments not found" || fail "internal payments not found"
 
-step "claims are routed to claim-service: an unknown claim path is answered by it"
-call 404 "$BASE/api/v1/claims/x" -H "Authorization: Bearer $ACCESS" | grep '"NOT_FOUND"' >/dev/null \
+step "claims are routed to claim-service: a malformed claim id is answered by it"
+# 'x' is not a UUID, so claim-service's own validation answers 400 VALIDATION_FAILED.
+call 400 "$BASE/api/v1/claims/x" -H "Authorization: Bearer $ACCESS" | grep '"VALIDATION_FAILED"' >/dev/null \
   && echo "claim-service answered" || fail "claim-service answered"
 
 step "unknown paths are answered in the problem format (with a valid token, so routing is reached)"
@@ -249,5 +250,40 @@ call 200 "$BASE/api/v1/payments/$(field "$POLICY2" paymentId)/pay" -X POST -H "$
 sleep 3
 [ "$(policy_status "$BUYER" "$(field "$POLICY2" id)")" = "PENDING_PAYMENT" ] && echo "policy still PENDING_PAYMENT" \
   || { echo "FAILED: a declined payment changed the policy" >&2; exit 1; }
+
+step "claims: a draft with a document and a presigned link, then a submission the checks reject"
+# The policy above starts in ten days, so an incident today is outside cover: the checks reject it at once,
+# and that is the path this step exercises. The approved path is covered by the claim-service integration tests.
+MEMBER=$(field "$(call 200 "$BASE/api/v1/claims/policies/$POLICY_ID" -H "Authorization: Bearer $BUYER")" memberNumber)
+[ -n "$MEMBER" ] || { echo "FAILED: the policy has no member number" >&2; exit 1; }
+TODAY_DATE=$(date -u +%F)
+CLAIM=$(call 201 "$BASE/api/v1/claims" -H "$JSON" -H "Authorization: Bearer $BUYER" \
+  -d "{\"policyId\":\"$POLICY_ID\",\"claim\":{\"memberId\":\"$MEMBER\",\"moduleCode\":\"INPATIENT\",\"benefitCode\":\"GENERAL_INPATIENT\",\"cause\":\"ACCIDENT\",\"surgical\":false,\"conditionTags\":[],\"incidentDate\":\"$TODAY_DATE\",\"providerName\":\"Smoke Clinic\",\"description\":\"Smoke test admission\",\"amountClaimed\":3000.00}}")
+CLAIM_ID=$(field "$CLAIM" id)
+printf '%s' "$CLAIM" | grep '"status":"DRAFT"' >/dev/null && printf '%s' "$CLAIM" | grep '"claimNumber":"CLM-ACACIA-' >/dev/null \
+  && echo "draft $(field "$CLAIM" claimNumber) created" || { echo "FAILED: unexpected draft: $CLAIM" >&2; exit 1; }
+
+# In the working directory, not /tmp: curl on Windows cannot open a Git Bash /tmp path.
+SMOKE_DOC=$(mktemp "./smoke-doc.XXXXXX")
+trap 'rm -f "$SMOKE_DOC"' EXIT
+printf '%%PDF-1.4\nsmoke receipt\n' > "$SMOKE_DOC"
+DOCUMENT=$(call 201 "$BASE/api/v1/claims/$CLAIM_ID/documents" -H "Authorization: Bearer $BUYER" \
+  -F "docType=RECEIPT" -F "file=@$SMOKE_DOC;type=application/pdf")
+DOC_ID=$(field "$DOCUMENT" id)
+echo "document $DOC_ID stored"
+call 200 "$BASE/api/v1/claims/$CLAIM_ID/documents/$DOC_ID/download-url" -H "Authorization: Bearer $BUYER" \
+  | grep '"url":"' >/dev/null && echo "presigned link issued" || fail "presigned link issued"
+call 415 "$BASE/api/v1/claims/$CLAIM_ID/documents" -H "Authorization: Bearer $BUYER" \
+  -F "docType=RECEIPT" -F "file=@$SMOKE_DOC;type=text/plain" | grep '"DOCUMENT_TYPE_NOT_ALLOWED"' >/dev/null \
+  && echo "a text file is refused" || fail "a text file is refused"
+
+REJECTED=$(call 200 "$BASE/api/v1/claims/$CLAIM_ID/submit" -X POST -H "Authorization: Bearer $BUYER")
+printf '%s' "$REJECTED" | grep '"status":"REJECTED"' >/dev/null && [ "$(field "$REJECTED" rejectionReason)" = "POLICY_IN_FORCE" ] \
+  && echo "submission rejected at once: POLICY_IN_FORCE" || { echo "FAILED: unexpected submission result: $REJECTED" >&2; exit 1; }
+HISTORY=$(call 200 "$BASE/api/v1/claims/$CLAIM_ID/history" -H "Authorization: Bearer $BUYER")
+printf '%s' "$HISTORY" | grep '"totalElements":3' >/dev/null && echo "history: created, submitted, rejected" \
+  || { echo "FAILED: unexpected history: $HISTORY" >&2; exit 1; }
+call 404 "$BASE/api/v1/claims/$CLAIM_ID" -H "Authorization: Bearer $OTHER_BUYER" | grep '"CLAIM_NOT_FOUND"' >/dev/null \
+  && echo "another customer gets 404 on the claim" || fail "another customer gets 404 on the claim"
 
 printf '\nsmoke.sh: all steps passed\n'

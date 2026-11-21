@@ -257,6 +257,8 @@ services:
         condition: service_healthy
       kafka-topics:
         condition: service_completed_successfully
+      seaweedfs-bucket:
+        condition: service_completed_successfully
     environment:
       JAVA_OPTS: "-Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/claim_db
@@ -267,6 +269,11 @@ services:
       CLAIM_SERVICE_AUTH_SECRET: ${SERVICE_SECRET_CLAIM_SERVICE}
       CLAIM_POLICY_SERVICE_BASE_URL: http://policy-service:8080
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Documents (M5b): uploads go to SeaweedFS on the compose network; presigned links use the host-published port.
+      CLAIM_STORAGE_ENDPOINT: http://seaweedfs:8333
+      CLAIM_STORAGE_PUBLIC_ENDPOINT: http://localhost:8333
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
