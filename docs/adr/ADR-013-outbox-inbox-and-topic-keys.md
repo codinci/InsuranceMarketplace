@@ -1,6 +1,6 @@
 # ADR-013: Transactional outbox, inbox and topic keys
 
-- **Status:** Accepted (2026-11-21). Implemented in M4b (payment-service and policy-service).
+- **Status:** Accepted (2026-11-21). Implemented in M4b (payment-service and policy-service). Extracted to `common-messaging` in M5a, the third user (claim-service) named below.
 - **Context:** A service changes its database and must tell other services. Writing to the database and then calling Kafka is a dual write: if the process dies between the two, the database and the events disagree (PLAN 11). Consumers also see duplicates, because delivery is at least once. PLAN 21.6 names topic and partition design as expensive to change, and the M0b parking lot asked for this ADR before the first event is published.
 
 ## Decision
