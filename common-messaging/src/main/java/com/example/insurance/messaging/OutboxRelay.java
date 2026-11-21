@@ -1,0 +1,81 @@
+package com.example.insurance.messaging;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.kafka.core.KafkaOperations;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.support.TransactionOperations;
+
+/**
+ * Sends unsent outbox rows to Kafka (ADR-013). A row is marked published only after the broker has
+ * acknowledged it, so a crash means a resend, never a loss. Consumers handle the resend through
+ * their inbox.
+ */
+public class OutboxRelay {
+
+  /** Kafka header with the event type, so a consumer can route before parsing (ADR-013). */
+  public static final String EVENT_TYPE_HEADER = "eventType";
+
+  static final int BATCH_SIZE = 100;
+
+  private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
+  private static final long SEND_TIMEOUT_SECONDS = 10;
+
+  private final OutboxEventRepository outbox;
+  private final KafkaOperations<String, String> kafka;
+  private final TransactionOperations transactions;
+  private final Clock clock;
+
+  public OutboxRelay(
+      OutboxEventRepository outbox,
+      KafkaOperations<String, String> kafka,
+      TransactionOperations transactions,
+      Clock clock) {
+    this.outbox = outbox;
+    this.kafka = kafka;
+    this.transactions = transactions;
+    this.clock = clock;
+  }
+
+  @Scheduled(fixedDelayString = "${messaging.outbox.relay-delay-ms:1000}")
+  public void publishPending() {
+    transactions.executeWithoutResult(status -> publishBatch());
+  }
+
+  /** Stops at the first failure so later events of the same aggregate are not sent out of order. */
+  void publishBatch() {
+    for (OutboxEvent event : outbox.lockUnpublished(BATCH_SIZE)) {
+      try {
+        kafka.send(record(event)).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        event.markPublished(clock.instant());
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
+      } catch (ExecutionException | TimeoutException e) {
+        event.recordAttempt();
+        LOG.warn(
+            "Outbox event {} not sent yet; will retry: {}", event.getEventId(), e.getMessage());
+        return;
+      }
+    }
+  }
+
+  static ProducerRecord<String, String> record(OutboxEvent event) {
+    return new ProducerRecord<>(
+        event.getTopic(),
+        null,
+        event.getMessageKey(),
+        event.getPayload(),
+        List.of(
+            new RecordHeader(
+                EVENT_TYPE_HEADER, event.getEventType().getBytes(StandardCharsets.UTF_8))));
+  }
+}

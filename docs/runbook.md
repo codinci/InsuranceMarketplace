@@ -142,6 +142,22 @@ Use `payment.events` for the payment side and `<topic>.DLT` for messages a consu
 
 **The full gate starts the stack.** `scripts/verify.sh` builds the images, starts the `full` profile, waits until the gateway is healthy and runs `scripts/smoke.sh`. If the stack was not running before, it is stopped again at the end (data volumes are kept).
 
+## Claims: the policy read model (M5a)
+
+**The secret.** claim-service gets its own SERVICE token from auth-service, with `SERVICE_SECRET_CLAIM_SERVICE` from `.env`. Set it once, the same way as the policy secret:
+
+```bash
+echo "SERVICE_SECRET_CLAIM_SERVICE=$(openssl rand -hex 24)" >> .env
+```
+
+Without it, the fallback answers 503 `POLICY_UNAVAILABLE` whenever the read model does not have the policy. The read model itself does not need it.
+
+**Where a policy is answered from.** `GET /api/v1/claims/policies` lists only what the read model holds (activated or cancelled policies). `GET /api/v1/claims/policies/{id}` answers from the read model, or asks policy-service when the event has not arrived yet.
+
+**If a bought policy is missing from the claim list.** Check, in order: that `policy.events` has the `PolicyActivated` message for it (Kafka UI or the console consumer above); that claim-service has not moved it to `policy.events.DLT` (an unknown type); that the message is not older than the stored version (the log says "not newer than version"); and the consumer group `claim-service` lag. A policy that is still `PENDING_PAYMENT` is not expected in the list.
+
+**A 503 with Retry-After: 30.** policy-service did not answer (down, timing out, or refusing the token). The circuit breaker opens after repeated failures and stays open for 30 seconds, so customers get the fast 503 until it closes again. The log line "policy-service lookup failed" shows the cause.
+
 ## Troubleshooting
 
 - **A service shows "unhealthy" or "starting" for a long time:** `docker compose logs <service>`. Kafka and SeaweedFS can take 30-60 seconds on first start.

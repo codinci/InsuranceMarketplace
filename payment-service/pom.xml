@@ -25,6 +25,12 @@
       <artifactId>common-events</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- Outbox, inbox, relay and dead-letter handling, shared by every service with events (ADR-013, M5a). -->
+    <dependency>
+      <groupId>com.example.insurance</groupId>
+      <artifactId>common-messaging</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>

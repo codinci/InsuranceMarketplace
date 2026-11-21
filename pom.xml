@@ -22,10 +22,12 @@
   <modules>
     <module>common-events</module>
     <module>common-starter</module>
+    <module>common-messaging</module>
     <module>auth-service</module>
     <module>api-gateway</module>
     <module>policy-service</module>
     <module>payment-service</module>
+    <module>claim-service</module>
     <module>infra-tests</module>
   </modules>
 

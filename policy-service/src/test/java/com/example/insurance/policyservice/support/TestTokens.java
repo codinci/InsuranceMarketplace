@@ -58,12 +58,21 @@ public final class TestTokens {
     return sign(UUID.randomUUID(), roles, insurerId);
   }
 
+  /** A SERVICE token as auth-service issues it: the subject is the calling service's name. */
+  public static String service(String serviceName) {
+    return signSubject(serviceName, List.of("SERVICE"), null);
+  }
+
   private static String sign(UUID subject, List<String> roles, UUID insurerId) {
+    return signSubject(subject.toString(), roles, insurerId);
+  }
+
+  private static String signSubject(String subject, List<String> roles, UUID insurerId) {
     Instant now = Instant.now();
     JwtClaimsSet.Builder claims =
         JwtClaimsSet.builder()
             .issuer(ISSUER)
-            .subject(subject.toString())
+            .subject(subject)
             .issuedAt(now)
             .expiresAt(now.plusSeconds(900))
             .claim("roles", roles);

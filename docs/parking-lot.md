@@ -38,6 +38,8 @@ Ideas that are outside the current milestone (CLAUDE.md workflow rule 8, PLAN 21
 | M4b | A premium paid after the unpaid deadline | The policy is already CANCELLED, so `PremiumPaid` is logged and ignored and the money is not refunded. Same reconciliation job (M8/M9). |
 | M4b | The purchase holds a database connection during the payment-service call | Up to about seven seconds in the worst case (three attempts with short timeouts). Fine at this scale; revisit if the connection pool runs short under load (M9). |
 | M4b | Outbox and inbox tables grow forever | Published outbox rows and inbox rows are never deleted. Add a cleanup job with the other lifecycle jobs (M8), keeping inbox rows longer than any redelivery window. |
-| M4b | Outbox and inbox code is copied in two services | Agreed in M4b planning. Extract it to a shared module when claim-service becomes the third user (M5), with an ADR if the shape changes. |
+| M4b | Outbox and inbox code is copied in two services | Resolved in M5a: `common-messaging` (ADR-013). |
+| M5a | The SERVICE token client is copied in policy-service and claim-service | `ServiceTokens` and the breaker/retry config are near-identical. Extract them into a shared module with the first further caller, or with the client-credentials change (ADR-014). |
+| M5a | The fallback has no cache or bulkhead | Every read-model miss calls policy-service, bounded only by the breaker. Fine at this scale; revisit if a customer can trigger many misses (M9). |
 | M4b | Internal calls use a plain `RestClient` | Spring Boot 4 auto-configures `RestClient.Builder` only with its separate restclient starter, so the payment and token clients are built directly and miss Boot's metrics and tracing hooks. Revisit with observability (M8/M9). |
 | M4b | The mock checkout accepts `simulate=FAIL` from any customer | Fine for a mock provider. The field must not exist once a real provider is added. |

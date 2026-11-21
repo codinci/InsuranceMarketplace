@@ -1,5 +1,6 @@
 package com.example.insurance.policyservice.policy.service;
 
+import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.TermsSnapshot;
 import com.example.insurance.policyservice.catalogue.api.CatalogueApi;
 import com.example.insurance.policyservice.catalogue.api.Relationship;
@@ -13,6 +14,7 @@ import com.example.insurance.policyservice.policy.domain.PolicyNumbers;
 import com.example.insurance.policyservice.policy.domain.Quote;
 import com.example.insurance.policyservice.policy.domain.QuoteStatus;
 import com.example.insurance.policyservice.policy.domain.QuotedMember;
+import com.example.insurance.policyservice.policy.dto.InternalPolicyResponse;
 import com.example.insurance.policyservice.policy.dto.PolicyMemberView;
 import com.example.insurance.policyservice.policy.dto.PolicyResponse;
 import com.example.insurance.policyservice.policy.dto.PolicySummary;
@@ -138,6 +140,38 @@ public class PolicyService {
   @Transactional(readOnly = true)
   public PageResponse<PolicySummary> list(UUID userId, Pageable pageable) {
     return PageResponse.of(policies.findByHolderUserId(userId, pageable), PolicyService::summary);
+  }
+
+  /** The policy as claim-service reads it (ADR-014 caller check is in SecurityConfig). */
+  @Transactional(readOnly = true)
+  public InternalPolicyResponse internalView(UUID policyId) {
+    Policy policy =
+        policies
+            .findById(policyId)
+            .orElseThrow(() -> new ApiException(ErrorCode.POLICY_NOT_FOUND, "No such policy."));
+    List<PolicyActivated.MemberTerms> memberTerms =
+        members.findByPolicyIdOrderByPosition(policy.getId()).stream()
+            .map(m ->
+                new PolicyActivated.MemberTerms(
+                    m.getMemberNumber(),
+                    m.getRelationship().name(),
+                    m.getSex().name(),
+                    m.getFirstName(),
+                    m.getLastName(),
+                    m.getDateOfBirth(),
+                    m.isStudent()))
+            .toList();
+    return new InternalPolicyResponse(
+        policy.getId(),
+        policy.getPolicyNumber(),
+        policy.getInsurerId(),
+        policy.getHolderUserId(),
+        policy.getStatus().name(),
+        policy.getStartDate(),
+        policy.getEndDate(),
+        policy.getPolicyVersion(),
+        memberTerms,
+        PolicyJson.read(policy.getTermsSnapshot(), TermsSnapshot.class));
   }
 
   @Transactional(readOnly = true)

@@ -116,6 +116,8 @@ In M4b the only producer is the unpaid-policy job: a policy still `PENDING_PAYME
 
 `policyVersion` starts at 1 at purchase and increases with every change. A consumer that has seen a higher version for a policy ignores a lower one.
 
+**Consumer: claim-service (M5a, ADR-015).** Both events feed claim-service's policy read model. A change applies only when its `policyVersion` is higher than the stored one, so a redelivery or a late older event changes nothing. A `PolicyCancelled` that arrives before its `PolicyActivated` leaves a row with no holder; the later activation is then not newer and is ignored. Unknown `type` values go to `policy.events.DLT`.
+
 ## Policy terms snapshot v1
 
 `TermsSnapshot` (`common-events`, package `com.example.insurance.events.policy`, ADR-011) is the terms a policy was sold with. policy-service stores it on every policy from M4a and returns it from `GET /api/v1/policies/{id}`. From M4b, `PolicyActivated` carries it to claim-service, which interprets it with the semantics in docs/catalogue-schema.md.

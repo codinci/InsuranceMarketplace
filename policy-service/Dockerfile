@@ -4,11 +4,13 @@ WORKDIR /workspace
 COPY pom.xml ./
 COPY common-events ./common-events
 COPY common-starter ./common-starter
+COPY common-messaging ./common-messaging
 COPY policy-service ./policy-service
 # The reactor lists every module, so the other modules must exist even though they are not built here.
 COPY auth-service ./auth-service
 COPY api-gateway ./api-gateway
 COPY payment-service ./payment-service
+COPY claim-service ./claim-service
 COPY infra-tests ./infra-tests
 RUN mvn -B -q -pl policy-service -am package -DskipTests
 

@@ -18,6 +18,7 @@ Spring Boot microservices for multi-insurer medical insurance: browse plans, quo
 /pom.xml            parent (holds all quality plugin config)
 /common-events      event contracts only
 /common-starter     cross-cutting only (error format, correlation ID, logging, role constants). No domain code
+/common-messaging   transactional outbox, inbox, relay and dead-letter handling (M5a). No domain code; each service keeps its own tables
 /infra-tests        test-only module: Testcontainers smoke tests for Postgres, Kafka and SeaweedFS (M0b). No production code
 /api-gateway  /auth-service  /policy-service  /claim-service  /payment-service  /notification-service
 /docker-compose.yml  /scripts (verify.sh, smoke.sh)  /docs (adr, learning, parking-lot.md, events.md, catalogue-schema.md, runbook.md, openapi)

@@ -1,10 +1,8 @@
 package com.example.insurance.paymentservice.service;
 
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.messaging.Inbox;
 import com.example.insurance.paymentservice.domain.Payment;
-import com.example.insurance.paymentservice.messaging.ProcessedEvent;
-import com.example.insurance.paymentservice.messaging.ProcessedEventRepository;
-import com.example.insurance.paymentservice.messaging.Topics;
 import com.example.insurance.paymentservice.repository.PaymentRepository;
 import java.time.Clock;
 import java.util.UUID;
@@ -23,26 +21,24 @@ public class PaymentExpiryService {
   private static final Logger LOG = LoggerFactory.getLogger(PaymentExpiryService.class);
 
   private final PaymentRepository payments;
-  private final ProcessedEventRepository processed;
+  private final Inbox inbox;
   private final Clock clock;
 
-  public PaymentExpiryService(
-      PaymentRepository payments, ProcessedEventRepository processed, Clock clock) {
+  public PaymentExpiryService(PaymentRepository payments, Inbox inbox, Clock clock) {
     this.payments = payments;
-    this.processed = processed;
+    this.inbox = inbox;
     this.clock = clock;
   }
 
   @Transactional
   public void onPolicyCancelled(UUID eventId, PolicyCancelled event) {
-    if (processed.existsById(eventId)) {
-      LOG.debug("PolicyCancelled {} already applied; skipped.", eventId);
+    if (inbox.alreadyApplied(eventId)) {
       return;
     }
     payments
         .findByReferenceTypeAndReferenceId(Payment.REFERENCE_POLICY, event.policyId())
         .ifPresent(this::expireIfPayable);
-    processed.save(new ProcessedEvent(eventId, Topics.CONSUMER_NAME, clock.instant()));
+    inbox.markApplied(eventId);
   }
 
   private void expireIfPayable(Payment payment) {
