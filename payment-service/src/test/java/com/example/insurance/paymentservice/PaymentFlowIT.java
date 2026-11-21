@@ -82,7 +82,9 @@ class PaymentFlowIT extends AbstractPaymentIT {
       assertThat(jsonField(paid, "$.status")).isEqualTo("SUCCEEDED");
       assertThat(jsonField(paid, "$.providerRef")).startsWith("mock-");
 
-      String event = awaitMessage(consumer, policy.toString(), EventTypes.PREMIUM_PAID);
+      var record = awaitRecord(consumer, policy.toString(), EventTypes.PREMIUM_PAID);
+      assertThat(header(record, "eventType")).isEqualTo(EventTypes.PREMIUM_PAID);
+      String event = record.value();
       assertThat(field(event, "$.aggregateId")).isEqualTo(policy.toString());
       assertThat(field(event, "$.insurerId")).isEqualTo(INSURER.toString());
       assertThat(field(event, "$.version")).isEqualTo("1");

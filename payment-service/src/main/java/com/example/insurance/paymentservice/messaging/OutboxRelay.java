@@ -1,9 +1,13 @@
 package com.example.insurance.paymentservice.messaging;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaOperations;
@@ -20,6 +24,10 @@ import org.springframework.transaction.support.TransactionOperations;
 public class OutboxRelay {
 
   private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
+
+  /** Kafka header with the event type, so a consumer can route before parsing (ADR-013). */
+  public static final String EVENT_TYPE_HEADER = "eventType";
+
   private static final int BATCH_SIZE = 100;
   private static final long SEND_TIMEOUT_SECONDS = 10;
 
@@ -48,9 +56,7 @@ public class OutboxRelay {
   void publishBatch() {
     for (OutboxEvent event : outbox.lockUnpublished(BATCH_SIZE)) {
       try {
-        kafka
-            .send(event.getTopic(), event.getMessageKey(), event.getPayload())
-            .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        kafka.send(record(event)).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         event.markPublished(clock.instant());
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -62,5 +68,16 @@ public class OutboxRelay {
         return;
       }
     }
+  }
+
+  private static ProducerRecord<String, String> record(OutboxEvent event) {
+    return new ProducerRecord<>(
+        event.getTopic(),
+        null,
+        event.getMessageKey(),
+        event.getPayload(),
+        List.of(
+            new RecordHeader(
+                EVENT_TYPE_HEADER, event.getEventType().getBytes(StandardCharsets.UTF_8))));
   }
 }

@@ -183,17 +183,31 @@ abstract class AbstractPaymentIT {
     return consumer;
   }
 
-  /** The envelope of the first message with this key and type; fails after 30 seconds. */
+  /** The first message with this key and type; fails after 30 seconds. */
   protected static String awaitMessage(
+      KafkaConsumer<String, String> consumer, String key, String type) {
+    return awaitRecord(consumer, key, type).value();
+  }
+
+  /** The whole Kafka record (key, value and headers) of the first match; fails after 30 seconds. */
+  protected static ConsumerRecord<String, String> awaitRecord(
       KafkaConsumer<String, String> consumer, String key, String type) {
     long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
     while (System.nanoTime() < deadline) {
       for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(300))) {
         if (key.equals(record.key()) && type.equals(JsonPath.read(record.value(), "$.type"))) {
-          return record.value();
+          return record;
         }
       }
     }
     throw new AssertionError("No " + type + " message with key " + key);
+  }
+
+  /** The value of a Kafka header as text, or null when it is missing. */
+  protected static String header(ConsumerRecord<String, String> record, String name) {
+    var header = record.headers().lastHeader(name);
+    return header == null
+        ? null
+        : new String(header.value(), java.nio.charset.StandardCharsets.UTF_8);
   }
 }

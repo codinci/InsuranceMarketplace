@@ -79,8 +79,10 @@ class PolicyActivationIT extends AbstractPolicyFlowIT {
       publishPaid(bought, UUID.randomUUID());
 
       awaitStatus(bought.policyId(), "ACTIVE");
-      String activated =
-          awaitMessage(policyEvents, bought.policyId().toString(), EventTypes.POLICY_ACTIVATED);
+      var record =
+          awaitRecord(policyEvents, bought.policyId().toString(), EventTypes.POLICY_ACTIVATED);
+      assertThat(header(record, "eventType")).isEqualTo(EventTypes.POLICY_ACTIVATED);
+      String activated = record.value();
       assertThat(JsonPath.<String>read(activated, "$.aggregateId"))
           .isEqualTo(bought.policyId().toString());
       assertThat(JsonPath.<String>read(activated, "$.insurerId")).isEqualTo(insurerId.toString());
