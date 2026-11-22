@@ -2,6 +2,7 @@ package com.example.insurance.claimservice.exception;
 
 import com.example.insurance.claimservice.statemachine.ClaimStateMachine;
 import com.example.insurance.common.problem.Problems;
+import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Map;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -59,6 +60,7 @@ public class ApiExceptionHandler {
 
   @ExceptionHandler({
     HandlerMethodValidationException.class,
+    ConstraintViolationException.class,
     MethodArgumentTypeMismatchException.class,
     MissingServletRequestParameterException.class,
     HttpMessageNotReadableException.class

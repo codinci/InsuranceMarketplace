@@ -16,15 +16,18 @@
     "name" : "Claims",
     "description" : "Documents of a claim (M5b)."
   }, {
+    "name" : "Review",
+    "description" : "Staff: the review queue and the decision on a claim (M6)."
+  }, {
     "name" : "Claims",
-    "description" : "The customer's claims: draft, submit, withdraw and follow them (M5b)."
+    "description" : "Claims: the customer's draft, submit, withdraw and follow-up (M5b, M6)."
   } ],
   "paths" : {
     "/api/v1/claims/{claimId}" : {
       "get" : {
         "tags" : [ "Claims" ],
-        "summary" : "Read one of my claims",
-        "description" : "The claim with its checks.",
+        "summary" : "Read a claim",
+        "description" : "A customer reads their own claim with its checks. A reviewer reads a claim of their own insurer, with the soft flags and the payable estimate.",
         "operationId" : "get",
         "parameters" : [ {
           "name" : "claimId",
@@ -57,7 +60,7 @@
             }
           },
           "404" : {
-            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "description" : "No such claim for you or your insurer (CLAIM_NOT_FOUND)",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -422,6 +425,324 @@
         } ]
       }
     },
+    "/api/v1/claims/{claimId}/start-review" : {
+      "post" : {
+        "tags" : [ "Review" ],
+        "summary" : "Start reviewing a claim",
+        "description" : "Moves a SUBMITTED claim to UNDER_REVIEW and stores what the evaluator says is payable.",
+        "operationId" : "startReview",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The claim under review",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not staff, or your own claim (FORBIDDEN, SELF_REVIEW_NOT_ALLOWED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim at your insurer (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Not awaiting review (INVALID_TRANSITION)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/{claimId}/respond" : {
+      "post" : {
+        "tags" : [ "Claims" ],
+        "summary" : "Answer an information request",
+        "description" : "Returns a claim to review after a reviewer asked for more information. Upload any new documents first; they are accepted while the claim waits.",
+        "operationId" : "respond",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The claim, back under review",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "No information was requested (INVALID_TRANSITION)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/{claimId}/request-info" : {
+      "post" : {
+        "tags" : [ "Review" ],
+        "summary" : "Ask the customer for more information",
+        "description" : "Moves a claim under review to INFO_REQUESTED and tells the customer what is needed.",
+        "operationId" : "requestInfo",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RequestInfoRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The claim, waiting for the customer",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not staff, or your own claim (FORBIDDEN, SELF_REVIEW_NOT_ALLOWED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim at your insurer (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Not under review (INVALID_TRANSITION)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/{claimId}/reject" : {
+      "post" : {
+        "tags" : [ "Review" ],
+        "summary" : "Reject a claim",
+        "description" : "Moves a claim under review to REJECTED, with a reason the customer sees.",
+        "operationId" : "reject",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RejectRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The rejected claim",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not staff, or your own claim (FORBIDDEN, SELF_REVIEW_NOT_ALLOWED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim at your insurer (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Not under review (INVALID_TRANSITION)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
     "/api/v1/claims/{claimId}/documents" : {
       "get" : {
         "tags" : [ "Claims" ],
@@ -619,11 +940,112 @@
         } ]
       }
     },
+    "/api/v1/claims/{claimId}/approve" : {
+      "post" : {
+        "tags" : [ "Review" ],
+        "summary" : "Approve a claim",
+        "description" : "Evaluates the policy's limits and approves for payment: the full payable amount, or a smaller amount with a reason, never more. The approved amount is reserved against the limits. Above the configured threshold only an admin can approve.",
+        "operationId" : "approve",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApproveRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The approved claim",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not staff, your own claim, or above your threshold (FORBIDDEN, SELF_REVIEW_NOT_ALLOWED, ADMIN_APPROVAL_REQUIRED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such claim at your insurer (CLAIM_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Not under review, or limits changed at once (INVALID_TRANSITION, CONFLICT)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "More than payable, no reason for a partial amount, or nothing left under the limits (APPROVAL_EXCEEDS_PAYABLE, PARTIAL_APPROVAL_REASON_REQUIRED, COUNT_LIMIT_REACHED, LIMIT_EXHAUSTED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
     "/api/v1/claims/{claimId}/history" : {
       "get" : {
         "tags" : [ "Claims" ],
-        "summary" : "Status history of my claim",
-        "description" : "Every status change, oldest first.",
+        "summary" : "Status history of a claim",
+        "description" : "Every status change, oldest first. Customers see their own; reviewers their insurer's.",
         "operationId" : "history",
         "parameters" : [ {
           "name" : "claimId",
@@ -677,7 +1099,7 @@
             }
           },
           "404" : {
-            "description" : "No such claim of yours (CLAIM_NOT_FOUND)",
+            "description" : "No such claim for you or your insurer (CLAIM_NOT_FOUND)",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -742,6 +1164,81 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/DownloadUrlView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/claims/queue" : {
+      "get" : {
+        "tags" : [ "Review" ],
+        "summary" : "The review queue",
+        "description" : "Claims awaiting review for your insurer (every insurer for a platform admin), flagged claims first, then oldest first.",
+        "operationId" : "queue",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of claims",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseClaimResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad paging parameters (VALIDATION_FAILED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseClaimResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseClaimResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not staff (FORBIDDEN, STAFF_SCOPE_MISSING)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseClaimResponse"
                 }
               }
             }
@@ -1039,11 +1536,32 @@
             "type" : "string",
             "description" : "Why the claim was rejected, when it was."
           },
+          "amountApproved" : {
+            "type" : "number",
+            "description" : "What was approved for payment, once a reviewer has approved."
+          },
+          "decisionReason" : {
+            "type" : "string",
+            "description" : "The reviewer's reason: for a rejection, a partial approval or a request."
+          },
           "assessments" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/AssessmentView"
             }
+          },
+          "amountEligible" : {
+            "type" : "number",
+            "description" : "Reviewers only: what the evaluator says can be paid."
+          },
+          "flagged" : {
+            "type" : "boolean",
+            "description" : "Reviewers only: true when a soft flag was raised."
+          },
+          "reviewerId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Reviewers only: who last acted on the claim."
           },
           "createdAt" : {
             "type" : "string",
@@ -1060,7 +1578,7 @@
           "version" : {
             "type" : "integer",
             "format" : "int64",
-            "description" : "Increases with every change; send it back when you need one."
+            "description" : "Increases with every change."
           }
         }
       },
@@ -1078,6 +1596,32 @@
           }
         },
         "required" : [ "claim", "policyId" ]
+      },
+      "RequestInfoRequest" : {
+        "type" : "object",
+        "description" : "Asks the customer for more information about a claim.",
+        "properties" : {
+          "message" : {
+            "type" : "string",
+            "description" : "What the reviewer needs.",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "message" ]
+      },
+      "RejectRequest" : {
+        "type" : "object",
+        "description" : "Rejects a claim under review.",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "description" : "Shown to the customer.",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
       },
       "DocumentView" : {
         "type" : "object",
@@ -1106,6 +1650,24 @@
           "uploadedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "ApproveRequest" : {
+        "type" : "object",
+        "description" : "Approves a claim for payment.",
+        "properties" : {
+          "approvedAmount" : {
+            "type" : "number",
+            "description" : "Leave out to approve the full payable amount.",
+            "example" : 2000.0,
+            "minimum" : 0.01
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "Required when approving less than the payable amount.",
+            "maxLength" : 500,
+            "minLength" : 0
           }
         }
       },

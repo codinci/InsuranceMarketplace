@@ -59,18 +59,46 @@ public final class TestTokens {
     return mint(serviceName, List.of("SERVICE"));
   }
 
+  /**
+   * An adjuster of one insurer, as auth-service issues it: the token carries the {@code insurerId}.
+   */
+  public static String adjuster(UUID userId, UUID insurerId) {
+    return mint(userId.toString(), List.of("ADJUSTER"), insurerId);
+  }
+
+  /** An adjuster token with no insurer: a malformed token the service must refuse. */
+  public static String adjusterWithoutInsurer(UUID userId) {
+    return mint(userId.toString(), List.of("ADJUSTER"), null);
+  }
+
+  /** An insurer admin: an admin whose token carries an {@code insurerId}. */
+  public static String insurerAdmin(UUID userId, UUID insurerId) {
+    return mint(userId.toString(), List.of("ADMIN"), insurerId);
+  }
+
+  /** A platform admin: an admin with no insurer, who sees every insurer. */
+  public static String platformAdmin(UUID userId) {
+    return mint(userId.toString(), List.of("ADMIN"), null);
+  }
+
   private static String mint(String subject, List<String> roles) {
+    return mint(subject, roles, null);
+  }
+
+  private static String mint(String subject, List<String> roles, UUID insurerId) {
     Instant now = Instant.now();
-    JwtClaimsSet claims =
+    JwtClaimsSet.Builder claims =
         JwtClaimsSet.builder()
             .issuer(ISSUER)
             .subject(subject)
             .issuedAt(now)
             .expiresAt(now.plus(15, ChronoUnit.MINUTES))
             .id(UUID.randomUUID().toString())
-            .claim("roles", roles)
-            .build();
+            .claim("roles", roles);
+    if (insurerId != null) {
+      claims.claim("insurerId", insurerId.toString());
+    }
     JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).keyId(KEY_ID).build();
-    return ENCODER.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+    return ENCODER.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
   }
 }

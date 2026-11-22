@@ -286,4 +286,62 @@ printf '%s' "$HISTORY" | grep '"totalElements":3' >/dev/null && echo "history: c
 call 404 "$BASE/api/v1/claims/$CLAIM_ID" -H "Authorization: Bearer $OTHER_BUYER" | grep '"CLAIM_NOT_FOUND"' >/dev/null \
   && echo "another customer gets 404 on the claim" || fail "another customer gets 404 on the claim"
 
+step "review: an adjuster of the insurer reviews and approves a claim, and another insurer sees nothing"
+# A policy cannot start today (the earliest start is tomorrow), so no claim could ever be inside cover through the
+# purchase flow. This step publishes the PolicyActivated event a paid policy would produce, with cover that began
+# 100 days ago, for the smoke customer. The stack reads it exactly as it reads a real one.
+uuid() { local h; h=$(openssl rand -hex 16); printf '%s-%s-4%s-8%s-%s' "${h:0:8}" "${h:8:4}" "${h:13:3}" "${h:17:3}" "${h:20:12}"; }
+BUYER_ID=$(field "$(call 200 "$BASE/api/v1/auth/me" -H "Authorization: Bearer $BUYER")" id)
+ACACIA_ID=$(id_of "$INSURERS" ACACIA)
+[ -n "$BUYER_ID" ] && [ -n "$ACACIA_ID" ] || { echo "FAILED: missing buyer or insurer id" >&2; exit 1; }
+REVIEW_POLICY=$(uuid)
+COVER_START=$(date -u -d '-100 days' +%F)
+COVER_END=$(date -u -d '+264 days' +%F)
+OCCURRED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+TERMS='{"snapshotVersion":1,"insurerCode":"ACACIA","planId":null,"planCode":"STANDARD","planVersion":1,"currency":"KES","ageBasis":"NEXT_BIRTHDAY","modules":[{"module":"OUTPATIENT","option":"OP-40K","benefits":{"code":"OUTPATIENT","kind":"CATEGORY","limit":{"amount":100000,"period":"PER_YEAR","scope":"SHARED","maxPerVisit":null,"maxCount":null},"copay":null,"requiredDocuments":[],"preAuthRequired":false,"children":[{"code":"OP-CONSULT","kind":"SERVICE","limit":{"amount":null,"period":"PER_CLAIM","scope":"SHARED","maxPerVisit":2000,"maxCount":null},"copay":null,"requiredDocuments":["RECEIPT"],"preAuthRequired":false,"children":[]}]}}],"waitingRules":[],"exclusions":[],"filingDeadlineDays":90,"cancellation":null}'
+EVENT="{\"eventId\":\"$(uuid)\",\"type\":\"PolicyActivated\",\"version\":1,\"occurredAt\":\"$OCCURRED\",\"aggregateId\":\"$REVIEW_POLICY\",\"insurerId\":\"$ACACIA_ID\",\"correlationId\":\"smoke-m6\",\"payload\":{\"policyId\":\"$REVIEW_POLICY\",\"policyNumber\":\"POL-SMOKE-M6\",\"policyVersion\":2,\"holderUserId\":\"$BUYER_ID\",\"coverStart\":\"$COVER_START\",\"coverEnd\":\"$COVER_END\",\"members\":[{\"memberNumber\":\"SMOKE-M1\",\"relationship\":\"PRINCIPAL\",\"sex\":\"FEMALE\",\"firstName\":\"Smoke\",\"lastName\":\"Buyer\",\"dateOfBirth\":\"1990-06-15\",\"student\":false}],\"terms\":$TERMS}}"
+printf '%s|%s\n' "$REVIEW_POLICY" "$EVENT" \
+  | MSYS_NO_PATHCONV=1 docker compose --profile full exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
+      --bootstrap-server localhost:9092 --topic policy.events --property parse.key=true --property key.separator='|' \
+  && echo "PolicyActivated published for the smoke customer" || fail "PolicyActivated published for the smoke customer"
+for i in $(seq 1 60); do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/v1/claims/policies/$REVIEW_POLICY" -H "Authorization: Bearer $BUYER")" = "200" ] && break
+  sleep 0.5
+done
+call 200 "$BASE/api/v1/claims/policies/$REVIEW_POLICY" -H "Authorization: Bearer $BUYER" | grep '"status":"ACTIVE"' >/dev/null \
+  && echo "the policy reached the claim read model" || fail "the policy reached the claim read model"
+
+ADJUSTER_EMAIL="smoke.adjuster.$(date +%s)@example.com"
+call 201 "$BASE/api/v1/admin/users" -H "$JSON" -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d "{\"email\":\"$ADJUSTER_EMAIL\",\"password\":\"a-long-enough-password\",\"firstName\":\"Smoke\",\"lastName\":\"Adjuster\",\"role\":\"ADJUSTER\",\"insurerId\":\"$ACACIA_ID\"}" > /dev/null
+ADJUSTER=$(field "$(call 200 "$BASE/api/v1/auth/login" -H "$JSON" \
+  -d "{\"email\":\"$ADJUSTER_EMAIL\",\"password\":\"a-long-enough-password\"}")" accessToken)
+[ -n "$ADJUSTER" ] || { echo "FAILED: the adjuster could not log in" >&2; exit 1; }
+echo "adjuster of ACACIA created"
+
+REVIEW_CLAIM=$(field "$(call 201 "$BASE/api/v1/claims" -H "$JSON" -H "Authorization: Bearer $BUYER" \
+  -d "{\"policyId\":\"$REVIEW_POLICY\",\"claim\":{\"memberId\":\"SMOKE-M1\",\"moduleCode\":\"OUTPATIENT\",\"benefitCode\":\"OP-CONSULT\",\"cause\":\"ACCIDENT\",\"surgical\":false,\"conditionTags\":[],\"incidentDate\":\"$(date -u -d '-1 day' +%F)\",\"providerName\":\"Smoke Clinic\",\"description\":\"Smoke test consultation\",\"amountClaimed\":3000.00}}")" id)
+call 201 "$BASE/api/v1/claims/$REVIEW_CLAIM/documents" -H "Authorization: Bearer $BUYER" \
+  -F "docType=RECEIPT" -F "file=@$SMOKE_DOC;type=application/pdf" > /dev/null
+call 200 "$BASE/api/v1/claims/$REVIEW_CLAIM/submit" -X POST -H "Authorization: Bearer $BUYER" | grep '"status":"SUBMITTED"' >/dev/null \
+  && echo "claim submitted and accepted for review" || fail "claim submitted and accepted for review"
+
+call 200 "$BASE/api/v1/claims/queue?size=100" -H "Authorization: Bearer $ADJUSTER" | grep "\"id\":\"$REVIEW_CLAIM\"" >/dev/null \
+  && echo "the claim is in the adjuster's queue" || fail "the claim is in the adjuster's queue"
+call 200 "$BASE/api/v1/claims/queue?size=100" -H "Authorization: Bearer $OTHER_TOKEN" | grep "$REVIEW_CLAIM" >/dev/null \
+  && fail "another insurer's queue must not hold the claim" || echo "another insurer's queue does not hold it"
+call 404 "$BASE/api/v1/claims/$REVIEW_CLAIM" -H "Authorization: Bearer $OTHER_TOKEN" | grep '"CLAIM_NOT_FOUND"' >/dev/null \
+  && echo "another insurer's admin gets 404 on the claim" || fail "another insurer's admin gets 404 on the claim"
+call 403 "$BASE/api/v1/claims/$REVIEW_CLAIM/approve" -X POST -H "$JSON" -H "Authorization: Bearer $BUYER" -d '{}' > /dev/null \
+  && echo "a customer cannot approve" || fail "a customer cannot approve"
+
+STARTED=$(call 200 "$BASE/api/v1/claims/$REVIEW_CLAIM/start-review" -X POST -H "Authorization: Bearer $ADJUSTER")
+printf '%s' "$STARTED" | grep '"status":"UNDER_REVIEW"' >/dev/null && printf '%s' "$STARTED" | grep '"amountEligible":2000' >/dev/null \
+  && echo "review started; the per-visit cap makes 2000 payable" || { echo "FAILED: unexpected review start: $STARTED" >&2; exit 1; }
+APPROVED=$(call 200 "$BASE/api/v1/claims/$REVIEW_CLAIM/approve" -X POST -H "$JSON" -H "Authorization: Bearer $ADJUSTER" -d '{}')
+printf '%s' "$APPROVED" | grep '"status":"APPROVED"' >/dev/null && printf '%s' "$APPROVED" | grep '"amountApproved":2000' >/dev/null \
+  && echo "approved for 2000 of the 3000 claimed" || { echo "FAILED: unexpected approval: $APPROVED" >&2; exit 1; }
+call 200 "$BASE/api/v1/claims/$REVIEW_CLAIM" -H "Authorization: Bearer $BUYER" | grep '"amountApproved":2000' >/dev/null \
+  && echo "the customer sees the approved amount" || fail "the customer sees the approved amount"
+
 printf '\nsmoke.sh: all steps passed\n'

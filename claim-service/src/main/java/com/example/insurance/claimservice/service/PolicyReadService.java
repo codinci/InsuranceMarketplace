@@ -47,6 +47,21 @@ public class PolicyReadService {
         .orElseThrow(() -> new ApiException(ErrorCode.POLICY_NOT_FOUND, "No such policy."));
   }
 
+  /**
+   * A policy for staff review, by id only: the claim already belongs to the staff member's insurer,
+   * so no holder check applies. The read model answers first; policy-service is the fallback (PLAN
+   * 11).
+   */
+  @Transactional(readOnly = true)
+  public PolicyView getForStaff(UUID policyId) {
+    return snapshots
+        .findById(policyId)
+        .filter(snapshot -> snapshot.getActivation() != null)
+        .map(PolicyView::of)
+        .or(() -> policyClient.fetch(policyId).map(PolicyView::of))
+        .orElseThrow(() -> new ApiException(ErrorCode.POLICY_NOT_FOUND, "No such policy."));
+  }
+
   private Optional<PolicySnapshot> findLocal(UUID userId, UUID policyId) {
     return snapshots.findByPolicyIdAndHolderUserId(policyId, userId);
   }

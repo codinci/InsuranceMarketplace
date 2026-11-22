@@ -1,5 +1,6 @@
 package com.example.insurance.claimservice.service;
 
+import com.example.insurance.claimservice.config.ReviewProperties;
 import com.example.insurance.claimservice.domain.AssessmentResult;
 import com.example.insurance.claimservice.domain.Claim;
 import com.example.insurance.claimservice.domain.ClaimAssessment;
@@ -18,6 +19,7 @@ import com.example.insurance.claimservice.repository.ClaimRepository;
 import com.example.insurance.claimservice.repository.ClaimStatusHistoryRepository;
 import com.example.insurance.claimservice.rules.Assessment;
 import com.example.insurance.claimservice.rules.HardChecks;
+import com.example.insurance.claimservice.rules.SoftFlags;
 import com.example.insurance.claimservice.statemachine.ClaimStateMachine;
 import com.example.insurance.events.EventTypes;
 import com.example.insurance.events.claim.ClaimSubmitted;
@@ -26,10 +28,12 @@ import com.example.insurance.events.policy.TermsSnapshot;
 import com.example.insurance.messaging.EventJson;
 import com.example.insurance.messaging.OutboxWriter;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -59,6 +63,8 @@ public class ClaimService {
   private final OutboxWriter outbox;
   private final Clock clock;
   private final ZoneId businessZone;
+  private final ClaimLookup lookup;
+  private final ReviewProperties review;
 
   public ClaimService(
       ClaimRepository claims,
@@ -68,7 +74,9 @@ public class ClaimService {
       PolicyReadService policies,
       OutboxWriter outbox,
       Clock clock,
-      @Value("${claim.business-zone}") ZoneId businessZone) {
+      @Value("${claim.business-zone}") ZoneId businessZone,
+      ClaimLookup lookup,
+      ReviewProperties review) {
     this.claims = claims;
     this.history = history;
     this.assessments = assessments;
@@ -77,6 +85,8 @@ public class ClaimService {
     this.outbox = outbox;
     this.clock = clock;
     this.businessZone = businessZone;
+    this.lookup = lookup;
+    this.review = review;
   }
 
   /** Starts a DRAFT. The policy must be one the caller holds; the rest is checked at submission. */
@@ -146,6 +156,7 @@ public class ClaimService {
     }
 
     if (HardChecks.accepted(results)) {
+      raiseSoftFlags(claim, policy, now);
       outbox.record(
           Topics.CLAIM_EVENTS,
           EventTypes.CLAIM_SUBMITTED,
@@ -190,9 +201,24 @@ public class ClaimService {
     return claim;
   }
 
+  /**
+   * The customer answers an information request (PLAN 7, M6): INFO_REQUESTED back to UNDER_REVIEW.
+   * They may add documents while the claim waits for them.
+   */
+  @Transactional
+  public Claim respond(UUID userId, UUID claimId) {
+    Claim claim = owned(userId, claimId);
+    Instant now = clock.instant();
+    ClaimStatus from = claim.moveTo(ClaimStatus.UNDER_REVIEW, now);
+    recordChange(
+        claim, from, ClaimStatus.UNDER_REVIEW, userId, ACTOR_CUSTOMER, "customer responded", now);
+    return claim;
+  }
+
+  /** The claim for its customer, or for staff of its insurer; anyone else gets 404. */
   @Transactional(readOnly = true)
-  public Claim get(UUID userId, UUID claimId) {
-    return owned(userId, claimId);
+  public Claim get(Actor actor, UUID claimId) {
+    return lookup.visible(actor, claimId);
   }
 
   @Transactional(readOnly = true)
@@ -201,8 +227,8 @@ public class ClaimService {
   }
 
   @Transactional(readOnly = true)
-  public Page<ClaimStatusHistory> history(UUID userId, UUID claimId, Pageable pageable) {
-    owned(userId, claimId);
+  public Page<ClaimStatusHistory> history(Actor actor, UUID claimId, Pageable pageable) {
+    lookup.visible(actor, claimId);
     return history.findByClaimId(claimId, pageable);
   }
 
@@ -214,9 +240,49 @@ public class ClaimService {
 
   /** The claim, for the owner only; anyone else gets the same answer as for a missing claim. */
   Claim owned(UUID userId, UUID claimId) {
-    return claims
-        .findByIdAndHolderUserId(claimId, userId)
-        .orElseThrow(() -> new ApiException(ErrorCode.CLAIM_NOT_FOUND, "No such claim."));
+    return lookup.ownedBy(userId, claimId);
+  }
+
+  /**
+   * Raises the soft flags of a claim that passed the hard checks (PLAN 9.1). A flag never rejects;
+   * it is stored as a FLAG check and marks the claim for the top of the review queue.
+   */
+  private void raiseSoftFlags(Claim claim, PolicyView policy, Instant now) {
+    Set<ClaimStatus> ignored = EnumSet.of(ClaimStatus.DRAFT, ClaimStatus.WITHDRAWN);
+    long duplicates =
+        claims.countPossibleDuplicates(
+            claim.getPolicyId(),
+            claim.getMemberId(),
+            claim.getBenefitCode(),
+            claim.getProviderName(),
+            claim.getIncidentDate(),
+            claim.getAmountClaimed(),
+            claim.getId(),
+            ignored);
+    long recent =
+        claims.countRecentClaims(
+            claim.getPolicyId(),
+            claim.getMemberId(),
+            claim.getId(),
+            now.minus(Duration.ofDays(review.frequentClaimsDays())),
+            ignored);
+    List<Assessment> flags =
+        SoftFlags.evaluate(
+            new SoftFlags.Facts(
+                claim.getAmountClaimed(),
+                claim.getIncidentDate(),
+                policy.coverStart(),
+                duplicates,
+                recent),
+            new SoftFlags.Thresholds(
+                review.highAmountFlag(), review.earlyCoverDays(), review.frequentClaimsCount()));
+    for (Assessment flag : flags) {
+      assessments.save(
+          new ClaimAssessment(claim.getId(), flag.ruleCode(), flag.result(), flag.detail(), now));
+    }
+    if (!flags.isEmpty()) {
+      claim.markFlagged();
+    }
   }
 
   private void recordChange(

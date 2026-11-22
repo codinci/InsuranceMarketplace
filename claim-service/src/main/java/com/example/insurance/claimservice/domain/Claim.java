@@ -90,6 +90,30 @@ public class Claim {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
+  /** What the evaluator says can be paid (PLAN 9.2); null until review starts. */
+  @Column(name = "amount_eligible", precision = 19, scale = 2)
+  private BigDecimal amountEligible;
+
+  /** What the reviewer approved; never more than {@code amountEligible}. */
+  @Column(name = "amount_approved", precision = 19, scale = 2)
+  private BigDecimal amountApproved;
+
+  @Column(name = "reviewer_id")
+  private UUID reviewerId;
+
+  @Column(name = "reviewer_role", length = 20)
+  private String reviewerRole;
+
+  @Column(name = "decision_reason", length = 500)
+  private String decisionReason;
+
+  @Column(name = "reviewed_at")
+  private Instant reviewedAt;
+
+  /** True when a soft flag was raised at submission (PLAN 9.1). */
+  @Column(nullable = false)
+  private boolean flagged;
+
   @Version private long version;
 
   protected Claim() {
@@ -168,6 +192,29 @@ public class Claim {
   /** Records why the hard checks rejected the claim. */
   public void rejectWith(String reason) {
     rejectionReason = reason;
+  }
+
+  /** Records that a soft flag was raised at submission. */
+  public void markFlagged() {
+    flagged = true;
+  }
+
+  /** The most the reviewer may approve, as the evaluator last computed it. */
+  public void recordEligible(BigDecimal eligible) {
+    amountEligible = eligible;
+  }
+
+  /** Records who decided, why, and when. The reason is the reviewer's own words. */
+  public void recordDecision(UUID reviewer, String role, String reason, Instant now) {
+    reviewerId = reviewer;
+    reviewerRole = role;
+    decisionReason = reason;
+    reviewedAt = now;
+  }
+
+  /** Records the approved amount; the caller has already checked it against the evaluator. */
+  public void approveAmount(BigDecimal approved) {
+    amountApproved = approved;
   }
 
   public boolean isDraft() {
@@ -256,6 +303,34 @@ public class Claim {
 
   public Instant getUpdatedAt() {
     return updatedAt;
+  }
+
+  public BigDecimal getAmountEligible() {
+    return amountEligible;
+  }
+
+  public BigDecimal getAmountApproved() {
+    return amountApproved;
+  }
+
+  public UUID getReviewerId() {
+    return reviewerId;
+  }
+
+  public String getReviewerRole() {
+    return reviewerRole;
+  }
+
+  public String getDecisionReason() {
+    return decisionReason;
+  }
+
+  public Instant getReviewedAt() {
+    return reviewedAt;
+  }
+
+  public boolean isFlagged() {
+    return flagged;
   }
 
   public long getVersion() {
