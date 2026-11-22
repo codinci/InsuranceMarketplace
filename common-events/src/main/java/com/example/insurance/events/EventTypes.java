@@ -8,6 +8,8 @@ public final class EventTypes {
 
   public static final String PREMIUM_PAID = "PremiumPaid";
   public static final String PREMIUM_FAILED = "PremiumFailed";
+  public static final String PAYOUT_SUCCEEDED = "PayoutSucceeded";
+  public static final String PAYOUT_FAILED = "PayoutFailed";
   public static final String POLICY_ACTIVATED = "PolicyActivated";
   public static final String POLICY_CANCELLED = "PolicyCancelled";
   public static final String CLAIM_SUBMITTED = "ClaimSubmitted";
