@@ -31,7 +31,7 @@ public class DocumentService {
   private static final String DOC_TYPE_PATTERN = "^[A-Z][A-Z_]{1,39}$";
 
   private final ClaimDocumentRepository documents;
-  private final ClaimService claims;
+  private final ClaimLookup claims;
   private final DocumentStorage storage;
   private final StorageProperties properties;
   private final Clock clock;
@@ -44,7 +44,7 @@ public class DocumentService {
           "DocumentStorage is a port whose implementations are thread-safe and owned by Spring (ADR-016).")
   public DocumentService(
       ClaimDocumentRepository documents,
-      ClaimService claims,
+      ClaimLookup claims,
       DocumentStorage storage,
       StorageProperties properties,
       Clock clock) {
@@ -68,10 +68,11 @@ public class DocumentService {
       String fileName,
       String contentType,
       byte[] content) {
-    Claim claim = claims.owned(userId, claimId);
-    if (claim.getStatus() != ClaimStatus.DRAFT) {
+    Claim claim = claims.ownedBy(userId, claimId);
+    if (claim.getStatus() != ClaimStatus.DRAFT && claim.getStatus() != ClaimStatus.INFO_REQUESTED) {
       throw new ApiException(
-          ErrorCode.CLAIM_NOT_EDITABLE, "Documents can be added to a draft only.");
+          ErrorCode.CLAIM_NOT_EDITABLE,
+          "Documents can be added to a draft, or while information is requested.");
     }
     if (docType == null || !docType.matches(DOC_TYPE_PATTERN)) {
       throw new ApiException(
@@ -103,15 +104,15 @@ public class DocumentService {
   }
 
   @Transactional(readOnly = true)
-  public Page<DocumentView> list(UUID userId, UUID claimId, Pageable pageable) {
-    claims.owned(userId, claimId);
+  public Page<DocumentView> list(Actor actor, UUID claimId, Pageable pageable) {
+    claims.visible(actor, claimId);
     return documents.findByClaimId(claimId, pageable).map(DocumentView::of);
   }
 
   /** A link that works for {@code presign-ttl} from now. Only the claim's owner gets one. */
   @Transactional(readOnly = true)
-  public DownloadUrlView downloadUrl(UUID userId, UUID claimId, UUID documentId) {
-    claims.owned(userId, claimId);
+  public DownloadUrlView downloadUrl(Actor actor, UUID claimId, UUID documentId) {
+    claims.visible(actor, claimId);
     ClaimDocument document =
         documents
             .findByIdAndClaimId(documentId, claimId)

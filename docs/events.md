@@ -39,7 +39,7 @@ Topics are created by the compose stack at start (M0b). Each topic has a `.DLT` 
 | `user.events` | UserRegistered | auth-service | notification-service |
 | `policy.events` | **PolicyActivated**, **PolicyCancelled**, PolicyExpired | policy-service | payment-service (M4b), claim-service, notification-service |
 | `payment.events` | **PremiumPaid**, **PremiumFailed**, PayoutSucceeded, PayoutFailed | payment-service | policy-service (M4b), claim-service, notification-service |
-| `claim.events` | ClaimSubmitted, ClaimInfoRequested, ClaimApproved, ClaimRejected | claim-service | payment-service, notification-service |
+| `claim.events` | **ClaimSubmitted**, **ClaimInfoRequested**, **ClaimApproved**, **ClaimRejected** | claim-service | payment-service (M7), notification-service |
 
 Payload schemas for each event are added in the milestone that introduces the producer (see PLAN 10). The payload records live in `common-events`; the `type` names are constants in `EventTypes`.
 
@@ -136,6 +136,31 @@ Sent when a claim passes the hard checks and is accepted for review. A claim the
 | `submittedAt` | instant | When the claim was submitted |
 
 Contract test: `EventPayloadContractTest.claimSubmittedRoundTripsAndKeepsMoneyExact`.
+
+### ClaimApproved v1 (`claim.events`, claim-service, M6)
+
+Sent in the same transaction as the approval (ADR-017), after the approved amount has been reserved against the policy's limits. The payout saga (M7) pays `amountApproved` and uses the envelope's `eventId` as its idempotency key.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `claimId`, `claimNumber` | UUID, string | The claim |
+| `policyId` | UUID | The policy |
+| `holderUserId` | UUID | The customer who is paid |
+| `memberId` | string | The member's number on the policy |
+| `benefitCode` | string | The benefit claimed |
+| `amountApproved` | decimal | What will be paid; never more than the evaluated payable amount. `NUMERIC(19,2)` |
+| `currency` | string | ISO code |
+| `approvedAt` | instant | When the claim was approved |
+
+### ClaimRejected v1 (`claim.events`, claim-service, M6)
+
+Sent when a reviewer rejects a claim during review. A claim rejected by the automatic checks at submission is not announced (ADR-016). Fields: `claimId`, `claimNumber`, `policyId`, `holderUserId`, `reason` (the reviewer's words, shown to the customer), `rejectedAt`.
+
+### ClaimInfoRequested v1 (`claim.events`, claim-service, M6)
+
+Sent when a reviewer asks the customer for more information. The customer answers with `POST /api/v1/claims/{id}/respond`. Fields: `claimId`, `claimNumber`, `policyId`, `holderUserId`, `message` (what the reviewer needs, shown to the customer), `requestedAt`.
+
+Contract tests: `EventPayloadContractTest` (`claimApprovedRoundTripsAndKeepsMoneyExact`, `claimRejectedRoundTripsWithItsReason`, `claimInfoRequestedRoundTripsWithItsMessage`).
 
 ## Policy terms snapshot v1
 

@@ -2,6 +2,9 @@ package com.example.insurance.events;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.insurance.events.claim.ClaimApproved;
+import com.example.insurance.events.claim.ClaimInfoRequested;
+import com.example.insurance.events.claim.ClaimRejected;
 import com.example.insurance.events.claim.ClaimSubmitted;
 import com.example.insurance.events.payment.PremiumFailed;
 import com.example.insurance.events.payment.PremiumPaid;
@@ -181,5 +184,81 @@ class EventPayloadContractTest {
         .contains("\"claimNumber\":\"CLM-ACACIA-2026-000001\"")
         .contains("\"incidentDate\":\"2027-01-15\"")
         .contains("\"amountClaimed\":3000.00");
+  }
+
+  private static final UUID CLAIM_ID = UUID.fromString("c1a1a1a1-2222-4333-8444-555555555555");
+
+  @Test
+  void claimApprovedRoundTripsAndKeepsMoneyExact() {
+    EventEnvelope<ClaimApproved> event =
+        envelope(
+            "ClaimApproved",
+            new ClaimApproved(
+                CLAIM_ID,
+                "CLM-ACACIA-2026-000001",
+                POLICY_ID,
+                HOLDER_ID,
+                "MEM-ACACIA-2026-000001-0",
+                "OP-CONSULT",
+                new BigDecimal("2000.00"),
+                "KES",
+                Instant.parse("2027-01-17T09:30:00Z")));
+
+    EventEnvelope<ClaimApproved> readBack =
+        roundTrip(event, new TypeReference<EventEnvelope<ClaimApproved>>() {});
+
+    assertThat(readBack.payload().amountApproved()).isEqualByComparingTo("2000.00");
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"amountApproved\":2000.00")
+        .contains("\"holderUserId\":\"" + HOLDER_ID + "\"")
+        .contains("\"benefitCode\":\"OP-CONSULT\"");
+  }
+
+  @Test
+  void claimRejectedRoundTripsWithItsReason() {
+    EventEnvelope<ClaimRejected> event =
+        envelope(
+            "ClaimRejected",
+            new ClaimRejected(
+                CLAIM_ID,
+                "CLM-ACACIA-2026-000001",
+                POLICY_ID,
+                HOLDER_ID,
+                "The invoice does not match the provider named.",
+                Instant.parse("2027-01-17T09:30:00Z")));
+
+    EventEnvelope<ClaimRejected> readBack =
+        roundTrip(event, new TypeReference<EventEnvelope<ClaimRejected>>() {});
+
+    assertThat(readBack.payload().reason()).startsWith("The invoice");
+    assertThat(mapper.writeValueAsString(event)).contains("\"rejectedAt\":");
+  }
+
+  @Test
+  void claimInfoRequestedRoundTripsWithItsMessage() {
+    EventEnvelope<ClaimInfoRequested> event =
+        envelope(
+            "ClaimInfoRequested",
+            new ClaimInfoRequested(
+                CLAIM_ID,
+                "CLM-ACACIA-2026-000001",
+                POLICY_ID,
+                HOLDER_ID,
+                "Please attach the discharge summary.",
+                Instant.parse("2027-01-17T09:30:00Z")));
+
+    EventEnvelope<ClaimInfoRequested> readBack =
+        roundTrip(event, new TypeReference<EventEnvelope<ClaimInfoRequested>>() {});
+
+    assertThat(readBack.payload().message()).contains("discharge summary");
+    assertThat(mapper.writeValueAsString(event)).contains("\"requestedAt\":");
+  }
+
+  @Test
+  void theClaimEventTypesAreTheNamesOnTheWire() {
+    assertThat(EventTypes.CLAIM_SUBMITTED).isEqualTo("ClaimSubmitted");
+    assertThat(EventTypes.CLAIM_APPROVED).isEqualTo("ClaimApproved");
+    assertThat(EventTypes.CLAIM_REJECTED).isEqualTo("ClaimRejected");
+    assertThat(EventTypes.CLAIM_INFO_REQUESTED).isEqualTo("ClaimInfoRequested");
   }
 }

@@ -93,6 +93,22 @@ Worked example (rules from the Baobab test fixture):
 
 Claim-service evaluates waiting rules at verification (PLAN 9.1, M5) and must follow these semantics exactly.
 
+- **Tie-break (M5b, ADR-016):** when precedence and `days` are both equal, the rule with the lower `code` wins, so the outcome never depends on the order rules are stored in.
+
+## How claim-service pays (M6, ADR-017)
+
+Claim-service reads the terms snapshot generically and follows these rules exactly. No insurer, plan or benefit code is known to it.
+
+- **The chain** is the benefit nodes from the module root down to the claimed benefit.
+- **Limits come first, root to leaf.** Each node with a limit caps the amount:
+  - `PER_YEAR` caps what is left after the running total for that benefit (and, for `PER_MEMBER`, that member). `maxCount` blocks a claim once that many have been approved (`COUNT_LIMIT_REACHED`).
+  - `PER_CLAIM` caps this claim only and keeps no running total.
+  - `maxPerVisit` caps this claim for either period.
+- **The co-pay comes last**, from the deepest node on the chain that has one: `PERCENT` takes that fraction off, `FIXED_PER_VISIT` subtracts the value (never below zero). Amounts are rounded to two places, half up.
+- **What is reserved** is the amount the reviewer approves (after the co-pay), on every `PER_YEAR` node of the chain, in the same transaction as the approval. A visit is counted only on nodes that set `maxCount`.
+- **The policy year** counts from the start of cover: year 1 for the first twelve months. A one-year policy is always in year 1.
+- **Examples.** Insurer A: consultation claimed 3,000, `maxPerVisit` 2,000, payable 2,000. Insurer B: consultation claimed 1,500, fixed co-pay 300, payable 1,200.
+
 ## Rating
 
 Each option has a `rating` object whose `model` selects a strategy. All amounts are annual.

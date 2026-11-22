@@ -54,7 +54,7 @@ public class DocumentController {
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
     return PageResponse.of(
         documents.list(
-            Customers.of(jwt), claimId, PageRequest.of(page, size, Sort.by("uploadedAt", "id"))),
+            Actors.of(jwt), claimId, PageRequest.of(page, size, Sort.by("uploadedAt", "id"))),
         document -> document);
   }
 
@@ -114,6 +114,6 @@ public class DocumentController {
       description = "No such claim or document of yours (CLAIM_NOT_FOUND, DOCUMENT_NOT_FOUND)")
   public DownloadUrlView downloadUrl(
       @AuthenticationPrincipal Jwt jwt, @PathVariable UUID claimId, @PathVariable UUID documentId) {
-    return documents.downloadUrl(Customers.of(jwt), claimId, documentId);
+    return documents.downloadUrl(Actors.of(jwt), claimId, documentId);
   }
 }

@@ -71,6 +71,12 @@ public abstract class AbstractClaimIT {
   /** Publishes an envelope the way policy-service does: the aggregate id is the Kafka key. */
   protected void publish(UUID eventId, String type, UUID policyId, Object payload)
       throws Exception {
+    publish(eventId, type, policyId, payload, INSURER);
+  }
+
+  /** The same, for a policy of another insurer. */
+  protected void publish(UUID eventId, String type, UUID policyId, Object payload, UUID insurer)
+      throws Exception {
     String value =
         json.writeValueAsString(
             new EventEnvelope<>(
@@ -79,7 +85,7 @@ public abstract class AbstractClaimIT {
                 1,
                 Instant.now(),
                 policyId.toString(),
-                INSURER.toString(),
+                insurer.toString(),
                 "it-test",
                 payload));
     kafka.send("policy.events", policyId.toString(), value).get(10, TimeUnit.SECONDS);

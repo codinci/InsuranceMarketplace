@@ -37,6 +37,34 @@ public class SecurityConfig {
                 .permitAll()
                 .requestMatchers("/internal/**")
                 .hasRole(Roles.SERVICE)
+                // Staff: the review queue and the decisions (M6). The insurer scope is checked in
+                // the
+                // service from the token, never here and never from the request.
+                .requestMatchers(HttpMethod.GET, "/api/v1/claims/queue")
+                .hasAnyRole(Roles.ADJUSTER, Roles.ADMIN)
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/claims/*/start-review",
+                    "/api/v1/claims/*/request-info",
+                    "/api/v1/claims/*/approve",
+                    "/api/v1/claims/*/reject")
+                .hasAnyRole(Roles.ADJUSTER, Roles.ADMIN)
+                // The policy read model is the customer's own view of their policies (M5a).
+                .requestMatchers(
+                    HttpMethod.GET, "/api/v1/claims/policies", "/api/v1/claims/policies/**")
+                .hasRole(Roles.CUSTOMER)
+                // A claim, its history and its documents are readable by the customer who owns them
+                // and by
+                // staff of the claim's insurer; the service decides which claim each can see.
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/claims/*",
+                    "/api/v1/claims/*/history",
+                    "/api/v1/claims/*/documents",
+                    "/api/v1/claims/*/documents/*/download-url")
+                .hasAnyRole(Roles.CUSTOMER, Roles.ADJUSTER, Roles.ADMIN)
+                // Everything else on claims is the customer's: draft, edit, submit, withdraw,
+                // respond, upload.
                 .requestMatchers("/api/v1/claims/**")
                 .hasRole(Roles.CUSTOMER)
                 .anyRequest()

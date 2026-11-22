@@ -170,6 +170,20 @@ Without it, the fallback answers 503 `POLICY_UNAVAILABLE` whenever the read mode
 
 **Orphaned documents.** If the database write fails after an upload, the object stays in the bucket with no row pointing at it. Nothing reads it; the lifecycle job (M8) will remove such objects.
 
+## Reviewing claims (M6)
+
+**Who can do what.** An adjuster or an insurer admin works on the claims of the insurer in their token. A platform admin (an ADMIN with no insurer) works on every insurer's. The queue is `GET /api/v1/claims/queue`, flagged claims first. A claim of another insurer answers 404, like one that does not exist. An adjuster token with no `insurerId` is refused with `STAFF_SCOPE_MISSING`; create staff through the admin endpoint with an insurer. Nobody reviews a claim they filed themselves.
+
+**The thresholds are configuration** in claim-service, set by environment variables or properties: `claim.review.approval-threshold` (KES 50,000: above it only an admin approves), `claim.review.high-amount-flag` (KES 100,000), `claim.review.early-cover-days` (30), `claim.review.frequent-claims-count` (3) and `claim.review.frequent-claims-days` (30). Changing one needs a restart.
+
+**What approval does.** `POST /api/v1/claims/{id}/approve` evaluates the policy's limits again, refuses more than the payable amount, and reserves the approved amount in the same transaction as the status change. The body is optional: leave the amount out to approve the full payable amount. A smaller amount needs a reason.
+
+**Refusals you may see.** `COUNT_LIMIT_REACHED` and `LIMIT_EXHAUSTED` (422): nothing can be paid under the limits, so reject the claim with a reason. `ADMIN_APPROVAL_REQUIRED` (403): the amount is above the threshold. `CONFLICT` (409): another approval changed the same limit at the same moment; retry.
+
+**The audit log.** Every staff action writes one structured line on the logger named `audit`, with `action`, `outcome` (`SUCCESS`, `REFUSED` or `ERROR`), `code`, `claimId`, `actorId`, `role` and `insurerId`. It never holds names, the reviewer's typed text or request bodies. Find a refused action with `docker compose logs claim-service | grep '"logger_name":"audit"'`.
+
+**Limits on the totals.** Running totals are in `benefit_utilisation` and what each claim reserved is in `claim_reservations` (claim_db). A reservation released for a failed payout (M7) stays as a row with `released_at` set.
+
 ## Troubleshooting
 
 - **A service shows "unhealthy" or "starting" for a long time:** `docker compose logs <service>`. Kafka and SeaweedFS can take 30-60 seconds on first start.

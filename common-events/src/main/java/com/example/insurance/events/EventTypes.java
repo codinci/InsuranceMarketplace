@@ -11,6 +11,9 @@ public final class EventTypes {
   public static final String POLICY_ACTIVATED = "PolicyActivated";
   public static final String POLICY_CANCELLED = "PolicyCancelled";
   public static final String CLAIM_SUBMITTED = "ClaimSubmitted";
+  public static final String CLAIM_APPROVED = "ClaimApproved";
+  public static final String CLAIM_REJECTED = "ClaimRejected";
+  public static final String CLAIM_INFO_REQUESTED = "ClaimInfoRequested";
 
   private EventTypes() {
     // Constants only; not instantiable.

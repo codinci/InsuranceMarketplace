@@ -47,6 +47,10 @@ Ideas that are outside the current milestone (CLAUDE.md workflow rule 8, PLAN 21
 | M5b | Raise the module line-coverage floor from 70% to 85% | Agreed 2026-11-22 for the hardening milestone (M9), by ADR. It revises earlier modules' tests: common-messaging is lowest at 86.8% and needs margin; every other module is above 93%. |
 | M5b | Per-package coverage gates are not in the POM | CLAUDE asks 90% line and 85% branch on `rules` and `statemachine`. Only the 70% bundle rule is enforced today; add the package rules once the numbers are measured in CI. |
 | M5b | No `ClaimRejected` event | Rejections at submission are visible on the claim only (ADR-016). Add the event with M6 review, if the notification service needs it. |
+| M6 | No persistent audit table | Staff actions are audited as structured log lines on the `audit` logger (ADR-017). A table would allow queries and retention rules; decide with the M9 security work. |
+| M6 | Reservation release has no caller yet | `UtilisationService.release` is built and tested; M7 calls it when a payout fails for good. |
+| M6 | Terms exclusions are still not applied | The M5b item stands: neither the hard checks nor the evaluator read `exclusions`. Decide the mapping with the owner before M7. |
+| M6 | The approval retry gives up after three attempts | Under heavy load on one policy a reviewer may see 409 and retry by hand. Revisit if load tests (M9) show it. |
 | M6 | Claims knowledge base and FAQ (stretch) | Agreed 2026-11-22: the information requests adjusters send (`ClaimInfoRequested`) can be collected into a knowledge base and an FAQ for customers. Stretch objective, later in the plan. |
 | M6 | Vector search in the search (stretch) | Agreed 2026-11-22: when the knowledge base exists, search gains vector (semantic) search next to the keyword search. Stretch objective; it needs an embedding model choice and a vector store, which belong in their own ADR. |
 | M5b | Soft flags and review states | `FLAG`, `UNDER_REVIEW`, `INFO_REQUESTED` and the payout states are in the machine but not reached yet (M6, M7). |
