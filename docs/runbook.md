@@ -182,7 +182,19 @@ Without it, the fallback answers 503 `POLICY_UNAVAILABLE` whenever the read mode
 
 **The audit log.** Every staff action writes one structured line on the logger named `audit`, with `action`, `outcome` (`SUCCESS`, `REFUSED` or `ERROR`), `code`, `claimId`, `actorId`, `role` and `insurerId`. It never holds names, the reviewer's typed text or request bodies. Find a refused action with `docker compose logs claim-service | grep '"logger_name":"audit"'`.
 
-**Limits on the totals.** Running totals are in `benefit_utilisation` and what each claim reserved is in `claim_reservations` (claim_db). A reservation released for a failed payout (M7) stays as a row with `released_at` set.
+**Limits on the totals.** Running totals are in `benefit_utilisation` and what each claim reserved is in `claim_reservations` (claim_db). A reservation stays in place while a claim is PAYOUT_FAILED, because the money is still owed (ADR-018). `UtilisationService.release` can give a reservation back, but nothing calls it yet; it is parked.
+
+## Payouts (M7)
+
+**The flow.** Approving a claim leaves it PAYOUT_PENDING. payment-service pays it through the mock provider and claim-service moves it to PAID, normally within one or two seconds. If the claim stays PAYOUT_PENDING, check that payment-service is running and look in `claim.events.DLT` and `payment.events.DLT`.
+
+**Find a payout.** As an admin (an insurer admin sees their own insurer's, a platform admin sees all): `GET /api/v1/payments/payouts?claimId=<claim id>`. To find claims whose payout failed: `GET /api/v1/claims/queue?status=PAYOUT_FAILED`.
+
+**Retry a failed payout.** `POST /api/v1/payments/{paymentId}/retry-payout` with an `Idempotency-Key` header (a new value for each attempt; repeating a value returns the first result). Only a payout in FAILED can be retried (`PAYOUT_NOT_RETRYABLE`, 409). A successful retry moves the claim to PAID. A payout of another insurer answers 404. Adjusters cannot retry.
+
+**The mock provider and failures.** payment-service property `payments.mock.payout-decline-payees` (environment variable `PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES`, comma-separated holder ids) makes the mock decline payouts to those customers. It is empty in normal use. The smoke script sets it for one customer to prove the failure and retry path, then clears it.
+
+**Replaying a dead letter.** As for premiums (see Payments above): fix the cause, then publish the message value again to the original topic with the same key. The inbox and the unique payout row make a replay harmless.
 
 ## Troubleshooting
 

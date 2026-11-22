@@ -1,0 +1,36 @@
+# M7: The payout saga
+
+## What M7 delivers
+
+- **Payouts in payment-service.** `ClaimApproved` creates one payout payment, the mock provider pays or declines, and `PayoutSucceeded` or `PayoutFailed` goes out through the outbox.
+- **The claim side.** Approval leaves the claim PAYOUT_PENDING. The payout events move it to PAID or PAYOUT_FAILED, with a history row for every step.
+- **Retry.** `POST /api/v1/payments/{id}/retry-payout` for admins, scoped to their insurer, with an `Idempotency-Key`. `GET /api/v1/payments/payouts?claimId=` finds the payout, and `GET /api/v1/claims/queue?status=PAYOUT_FAILED` finds the claims.
+- **Two new event contracts** in `common-events`, with contract tests.
+- **A smoke script that reaches PAID**, then proves the failure path: a declined payout, PAYOUT_FAILED, a retry, PAID.
+
+## New concepts
+
+**A saga.** One business action (approve, then pay) spans two services with two databases, so one database transaction cannot cover it. A saga is a chain of local transactions joined by events: each step commits on its own and announces the result, and the next service reacts. If a step fails, the saga does not roll back; it records the failure and a person or a compensating step deals with it. In Laravel terms, think of a queued job chain where each job writes to its own database and dispatches the next, not of a single `DB::transaction`.
+
+**Choreography.** No service is in charge. claim-service does not tell payment-service what to do; it announces `ClaimApproved`, and payment-service decides to pay. The alternative, orchestration, has one coordinator that calls each step. Choreography needs no coordinator, but the flow is spread over the services, so the docs (`docs/events.md`) have to show it in one place.
+
+**Idempotency, two layers.** A message can arrive twice. The first layer is the inbox: the consumer writes the event id in the same transaction as its effect, and a second delivery finds it and stops. The second layer is a unique key on the data: a claim can only have one payout row, so even a new event id for the same claim creates nothing. Layers matter because each one fails differently: the inbox cannot help when the same business fact arrives under a new id.
+
+**A detached entity.** `payments.save(entity)` can return a different object than the one you passed in. When an entity has a primitive `@Version` field, Spring Data cannot tell a new entity from an existing one, so `save` calls `merge`, which copies the state into a managed object and returns that. Changes made later to your original are not written. We hit this: the payout stayed PENDING in the database although the code had set SUCCEEDED. The fix is to keep the object `save` returns. It is the kind of bug a test that reads the database back finds, and a mock cannot.
+
+**`@MockitoSpyBean`.** A spy is the real object with the ability to override single methods. The payout test makes the real mock provider decline one holder, then lets it behave normally again, so one test can show fail, fail again, then succeed on retry.
+
+## Decisions to remember
+
+- **The claim waits at once.** Approval moves the claim to PAYOUT_PENDING in the same transaction that writes `ClaimApproved`, so the claim never says APPROVED while a payout is already on its way (ADR-018).
+- **The reservation is kept on failure.** The money is still owed. Giving the limit back needs a way to abandon a payout, which is parked.
+- **Retry is admin-only.** An adjuster decides a claim; moving money needs the higher role.
+- **Failure is configuration.** A premium can be asked to fail by the customer's request. A payout has no request, so a property lists the holders the mock declines.
+
+## Self-check (answer before M8 starts)
+
+1. Why does approval move the claim to PAYOUT_PENDING in the same transaction as writing `ClaimApproved`, and not when payment-service answers?
+2. Two things stop a claim being paid twice when `ClaimApproved` is delivered twice. Name both, and say which one still works when the second delivery has a new event id.
+3. The payout test passed on the first run for a premium but every payout stayed PENDING in the database. What was the cause, and what is the one-line fix?
+4. A payout fails and an admin retries it successfully. List the claim's statuses from PAYOUT_FAILED to the end, and say why the claim passes through PAYOUT_PENDING.
+5. Retry is called on a failed payout of insurer B by an adjuster of insurer B, by an admin of insurer A, and by an admin of insurer B. What does each get, and why are the first two answers different?
