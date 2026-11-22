@@ -101,7 +101,7 @@ class AdjudicationIT extends AbstractReviewIT {
     MvcResult approved = approve(admin, claimId, Map.of());
     assertThat(approved.getResponse().getStatus()).isEqualTo(200);
     assertThat(money(approved, "$.amountApproved")).isEqualByComparingTo("60000.00");
-    assertThat(this.<String>read(approved, "$.status")).isEqualTo("APPROVED");
+    assertThat(this.<String>read(approved, "$.status")).isEqualTo("PAYOUT_PENDING");
   }
 
   @Test

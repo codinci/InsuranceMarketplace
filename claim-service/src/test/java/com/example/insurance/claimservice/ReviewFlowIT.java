@@ -43,12 +43,12 @@ class ReviewFlowIT extends AbstractReviewIT {
 
     MvcResult approved = approve(staff, claimId, Map.of());
     assertThat(approved.getResponse().getStatus()).isEqualTo(200);
-    assertThat(this.<String>read(approved, "$.status")).isEqualTo("APPROVED");
+    assertThat(this.<String>read(approved, "$.status")).isEqualTo("PAYOUT_PENDING");
     assertThat(money(approved, "$.amountApproved")).isEqualByComparingTo("3000.00");
     assertThat(outboxTypes()).contains("ClaimApproved");
 
     MvcResult seenByCustomer = claimAs(customer, claimId);
-    assertThat(this.<String>read(seenByCustomer, "$.status")).isEqualTo("APPROVED");
+    assertThat(this.<String>read(seenByCustomer, "$.status")).isEqualTo("PAYOUT_PENDING");
     assertThat(money(seenByCustomer, "$.amountApproved")).isEqualByComparingTo("3000.00");
     // Reviewer-only fields are not shown to the customer.
     assertThat(this.<Object>read(seenByCustomer, "$.flagged")).isNull();
@@ -56,9 +56,10 @@ class ReviewFlowIT extends AbstractReviewIT {
     assertThat(this.<Object>read(seenByCustomer, "$.reviewerId")).isNull();
 
     MvcResult history = as(customer, get("/api/v1/claims/{id}/history", claimId));
-    assertThat(this.<Integer>read(history, "$.totalElements")).isEqualTo(4);
+    assertThat(this.<Integer>read(history, "$.totalElements")).isEqualTo(5);
     assertThat(this.<String>read(history, "$.content[3].to")).isEqualTo("APPROVED");
     assertThat(this.<String>read(history, "$.content[3].actorRole")).isEqualTo("ADJUSTER");
+    assertThat(this.<String>read(history, "$.content[4].to")).isEqualTo("PAYOUT_PENDING");
   }
 
   @Test
