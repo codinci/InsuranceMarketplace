@@ -50,7 +50,7 @@
 
 ## Corrected answers
 
-Answered so far: questions 1 to 4. Question 5 is still open.
+Answered: all five questions.
 
 1. Each running-total row has a `version` column (optimistic locking). Both approvals read the total as 500 at version N, and both try to save with `WHERE version = N`. The first save succeeds and moves the row to N+1. The second finds no row at version N, so its transaction rolls back and nothing is reserved. The second reviewer's request returns 409 with code `CONFLICT`, the claim stays under review, and the reviewer retries. The retry reads the new total and either approves within the limit or is refused because the limit is now used up. An atomic conditional update (`UPDATE ... SET used = used + :amount WHERE used + :amount <= :limit`) would also work, but this service reads, evaluates the whole benefit chain and then saves, so a version check is the fit. A lock held across the evaluation could deadlock when a chain touches several rows.
 
@@ -59,3 +59,5 @@ Answered so far: questions 1 to 4. Question 5 is still open.
 3. Payable is 1,200. The limits cap first: 1,500 is under the 2,000 per-visit cap, so 1,500 is eligible. The fixed co-pay of 300 then comes off, leaving 1,200. A full approval reserves 1,200, the amount after the co-pay, because a limit caps what the insurer pays and the customer's share must not use it up (ADR-017). The amount is reserved on every `PER_YEAR` node of the chain and recorded per claim in `claim_reservations`, so it can be released exactly.
 
 4. Every staff query is filtered by the `insurerId` in the token. An adjuster token with no `insurerId` has no insurer to filter by, and treating "no insurer" as "no filter" would show that adjuster every insurer's claims. So the request is refused with `STAFF_SCOPE_MISSING`, and a missing claim can never widen an adjuster's reach. A platform admin (an ADMIN with no `insurerId`) is deliberately allowed to see every insurer, so there the absence is meaningful, not missing. A claim of another insurer answers 404, the same as a claim that does not exist.
+
+5. The audit line holds who, what, on which target and with what result: `actorId` (your "userid"), `role`, `insurerId` (your "tenantid"), `action`, `claimId` (the target), `outcome` (`REFUSED`) and `code` (the stable reason code, such as `STAFF_SCOPE_MISSING`). The logger adds the timestamp and the correlation id, which ties the line to the request across services. It must never hold tokens, the national ID, bank or payout details, other personal data, request bodies, or stack traces and other internals. A stack trace shows how the service is built, and a token in a log lets anyone who reads the log act as that user. An unexpected failure is logged only with its exception class name as the `code`, never its message, because messages can carry data. Verdict: correct and complete. The only addition is the correlation id, and the timestamp comes from the logger rather than the code.
