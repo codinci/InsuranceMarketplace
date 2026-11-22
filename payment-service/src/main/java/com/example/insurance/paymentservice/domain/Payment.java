@@ -20,8 +20,11 @@ import java.util.UUID;
 @Table(name = "payments")
 public class Payment {
 
-  /** The only reference type in v1: a policy's premium. */
+  /** A policy's premium. */
   public static final String REFERENCE_POLICY = "POLICY";
+
+  /** A payout for an approved claim (M7). */
+  public static final String REFERENCE_CLAIM = "CLAIM";
 
   @Id private UUID id;
 
@@ -94,6 +97,30 @@ public class Payment {
     payment.createdAt = now;
     payment.updatedAt = now;
     return payment;
+  }
+
+  /**
+   * A payout for an approved claim, waiting for its first attempt. The intent key is the id of the
+   * {@code ClaimApproved} event, so a redelivered event finds this payment instead of making one.
+   */
+  public static Payment createPayout(
+      String intentKey,
+      UUID claimId,
+      String claimNumber,
+      UUID insurerId,
+      UUID holderUserId,
+      BigDecimal amount,
+      String currency,
+      Instant now) {
+    Payment payment =
+        create(intentKey, claimId, claimNumber, insurerId, holderUserId, amount, currency, now);
+    payment.referenceType = REFERENCE_CLAIM;
+    return payment;
+  }
+
+  /** True for a claim payout, false for a premium. */
+  public boolean isPayout() {
+    return REFERENCE_CLAIM.equals(referenceType);
   }
 
   /** True when the same creation request (same policy, amount and currency) built this payment. */

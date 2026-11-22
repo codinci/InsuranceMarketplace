@@ -15,6 +15,9 @@
   }, {
     "name" : "Internal",
     "description" : "Service-to-service endpoints (SERVICE token only). Not published through the gateway."
+  }, {
+    "name" : "Payouts",
+    "description" : "Find and retry claim payouts (admin)."
   } ],
   "paths" : {
     "/internal/payments" : {
@@ -84,6 +87,96 @@
           },
           "409" : {
             "description" : "The key was used for a different request (IDEMPOTENCY_KEY_REUSED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/payments/{id}/retry-payout" : {
+      "post" : {
+        "tags" : [ "Payouts" ],
+        "summary" : "Retry a failed payout",
+        "description" : "One attempt per Idempotency-Key. A repeat with the same key returns the first result. Only a payout in FAILED can be retried. Success sends PayoutSucceeded, which moves the claim to PAID.",
+        "operationId" : "retry",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "description" : "Unique per attempt, 1 to 80 characters",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The attempt's result: SUCCEEDED or FAILED",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Missing Idempotency-Key (IDEMPOTENCY_KEY_REQUIRED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not an admin (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such payout at your insurer (PAYMENT_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Not failed, or not a payout (PAYOUT_NOT_RETRYABLE), key reused for another payment (IDEMPOTENCY_KEY_REUSED), or a concurrent change (CONFLICT)",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -318,6 +411,78 @@
           },
           "404" : {
             "description" : "No such payment of yours (PAYMENT_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/payments/payouts" : {
+      "get" : {
+        "tags" : [ "Payouts" ],
+        "summary" : "Find the payout of a claim",
+        "description" : "Staff of the claim's insurer, or a platform admin. Use it to get the id to retry.",
+        "operationId" : "find",
+        "parameters" : [ {
+          "name" : "claimId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The payout and its status",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "claimId missing or not a UUID",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not an admin (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No payout for that claim at your insurer (PAYMENT_NOT_FOUND)",
             "content" : {
               "*/*" : {
                 "schema" : {

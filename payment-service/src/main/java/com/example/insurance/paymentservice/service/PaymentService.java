@@ -84,6 +84,10 @@ public class PaymentService {
   public PaymentResponse pay(
       UUID holderUserId, UUID paymentId, String idempotencyKey, boolean decline) {
     Payment payment = ownedPayment(holderUserId, paymentId);
+    if (payment.isPayout()) {
+      throw new ApiException(
+          ErrorCode.PAYMENT_NOT_PAYABLE, "A payout is paid out to you; there is nothing to pay.");
+    }
 
     Optional<PaymentTransaction> earlier = transactions.findByIdempotencyKey(idempotencyKey);
     if (earlier.isPresent()) {

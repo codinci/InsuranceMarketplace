@@ -61,6 +61,14 @@ public final class TestTokens {
     return mint(UUID.randomUUID().toString(), List.of("ADMIN"), insurerId.toString());
   }
 
+  public static String platformAdmin() {
+    return mint(UUID.randomUUID().toString(), List.of("ADMIN"), null);
+  }
+
+  public static String adjuster(UUID insurerId) {
+    return mint(UUID.randomUUID().toString(), List.of("ADJUSTER"), insurerId.toString());
+  }
+
   private static String mint(String subject, List<String> roles, String insurerId) {
     Instant now = Instant.now();
     JwtClaimsSet.Builder claims =
