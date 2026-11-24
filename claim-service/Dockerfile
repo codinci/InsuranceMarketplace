@@ -6,6 +6,7 @@ COPY common-events ./common-events
 COPY common-starter ./common-starter
 COPY common-messaging ./common-messaging
 COPY claim-service ./claim-service
+COPY notification-service ./notification-service
 # The reactor lists every module, so the other modules must exist even though they are not built here.
 COPY auth-service ./auth-service
 COPY api-gateway ./api-gateway
