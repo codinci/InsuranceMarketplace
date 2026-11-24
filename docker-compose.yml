@@ -237,6 +237,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       PAYMENT_JWT_JWK_SET_URI: http://auth-service:8080/.well-known/jwks.json
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Mock payouts to these holder ids are declined. Empty in normal use; the smoke script sets it
+      # to prove the failure and retry path.
+      PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES: ${PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
       interval: 10s

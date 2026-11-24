@@ -7,6 +7,8 @@ import com.example.insurance.events.payment.PremiumPaid;
 import com.example.insurance.messaging.EventJson;
 import com.example.insurance.messaging.UnknownEventTypeException;
 import com.example.insurance.policyservice.policy.service.PolicyLifecycleService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class PaymentEventListener {
+
+  private static final Logger LOG = LoggerFactory.getLogger(PaymentEventListener.class);
 
   private final PolicyLifecycleService lifecycle;
 
@@ -32,6 +36,9 @@ public class PaymentEventListener {
     } else if (EventTypes.PREMIUM_FAILED.equals(type)) {
       EventEnvelope<PremiumFailed> event = EventJson.envelope(message, PremiumFailed.class);
       lifecycle.onPremiumFailed(event.eventId(), event.payload());
+    } else if (EventTypes.PAYOUT_SUCCEEDED.equals(type) || EventTypes.PAYOUT_FAILED.equals(type)) {
+      // Claim payouts are claim-service's business, not the policy's (M7).
+      LOG.debug("{} is not used by policy-service; skipped.", type);
     } else {
       throw new UnknownEventTypeException(type);
     }

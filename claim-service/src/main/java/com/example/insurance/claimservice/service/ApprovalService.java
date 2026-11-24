@@ -157,6 +157,18 @@ public class ApprovalService {
             now));
     claim.approveAmount(approved);
     claim.recordDecision(staff.userId(), staff.role(), reason, now);
+    // The approval event below is the payout request, so the claim waits for the payout at once
+    // (M7).
+    ClaimStatus approvedStatus = claim.moveTo(ClaimStatus.PAYOUT_PENDING, now);
+    history.save(
+        new ClaimStatusHistory(
+            claim.getId(),
+            approvedStatus,
+            ClaimStatus.PAYOUT_PENDING,
+            staff.userId(),
+            staff.role(),
+            "payout requested",
+            now));
     outbox.record(
         Topics.CLAIM_EVENTS,
         EventTypes.CLAIM_APPROVED,

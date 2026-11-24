@@ -66,15 +66,16 @@ public class ReviewService {
    * admin.
    */
   @Transactional(readOnly = true)
-  public Page<Claim> queue(Actor staff, Pageable pageable) {
+  public Page<Claim> queue(Actor staff, ClaimStatus status, Pageable pageable) {
+    Set<ClaimStatus> statuses = status == null ? OPEN_STATUSES : EnumSet.of(status);
     if (staff.isPlatform()) {
-      return claims.findByStatusIn(OPEN_STATUSES, pageable);
+      return claims.findByStatusIn(statuses, pageable);
     }
     if (staff.insurerId() == null) {
       throw new ApiException(
           ErrorCode.STAFF_SCOPE_MISSING, "This staff account is not tied to an insurer.");
     }
-    return claims.findByInsurerIdAndStatusIn(staff.insurerId(), OPEN_STATUSES, pageable);
+    return claims.findByInsurerIdAndStatusIn(staff.insurerId(), statuses, pageable);
   }
 
   /** SUBMITTED to UNDER_REVIEW. Also stores what the evaluator says is payable, as a guide. */

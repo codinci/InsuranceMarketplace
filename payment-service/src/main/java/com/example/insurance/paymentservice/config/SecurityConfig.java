@@ -14,8 +14,9 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * Who can call what (PLAN 4). Payments belong to customers: each endpoint also checks that the
- * payment is the caller's, in the service. {@code /internal/**} needs a SERVICE token (ADR-014) and
- * is never routed by the gateway.
+ * payment is the caller's, in the service. Finding and retrying a payout is for an ADMIN, scoped to
+ * the token's insurer in the service. {@code /internal/**} needs a SERVICE token (ADR-014) and is
+ * never routed by the gateway.
  */
 @Configuration
 @EnableWebSecurity
@@ -37,6 +38,8 @@ public class SecurityConfig {
                 .permitAll()
                 .requestMatchers("/internal/**")
                 .hasRole(Roles.SERVICE)
+                .requestMatchers("/api/v1/payments/payouts", "/api/v1/payments/*/retry-payout")
+                .hasRole(Roles.ADMIN)
                 .requestMatchers("/api/v1/payments/**")
                 .hasRole(Roles.CUSTOMER)
                 .anyRequest()

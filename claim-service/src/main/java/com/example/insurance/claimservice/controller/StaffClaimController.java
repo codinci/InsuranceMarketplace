@@ -1,6 +1,7 @@
 package com.example.insurance.claimservice.controller;
 
 import com.example.insurance.claimservice.domain.Claim;
+import com.example.insurance.claimservice.domain.ClaimStatus;
 import com.example.insurance.claimservice.dto.ApproveRequest;
 import com.example.insurance.claimservice.dto.ClaimResponse;
 import com.example.insurance.claimservice.dto.RejectRequest;
@@ -59,19 +60,23 @@ public class StaffClaimController {
       summary = "The review queue",
       description =
           "Claims awaiting review for your insurer (every insurer for a platform admin), flagged"
-              + " claims first, then oldest first.")
+              + " claims first, then oldest first. Pass status (for example PAYOUT_FAILED) to list"
+              + " claims in that status instead.")
   @ApiResponse(responseCode = "200", description = "One page of claims")
-  @ApiResponse(responseCode = "400", description = "Bad paging parameters (VALIDATION_FAILED)")
+  @ApiResponse(
+      responseCode = "400",
+      description = "Bad paging parameters or unknown status (VALIDATION_FAILED)")
   @ApiResponse(responseCode = "401", description = "No valid access token (UNAUTHENTICATED)")
   @ApiResponse(responseCode = "403", description = "Not staff (FORBIDDEN, STAFF_SCOPE_MISSING)")
   public PageResponse<ClaimResponse> queue(
       @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(required = false) ClaimStatus status,
       @RequestParam(defaultValue = "0") @Min(0) int page,
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
     Sort order =
         Sort.by(Sort.Order.desc("flagged"), Sort.Order.asc("submittedAt"), Sort.Order.asc("id"));
     return PageResponse.of(
-        reviews.queue(Actors.of(jwt), PageRequest.of(page, size, order)),
+        reviews.queue(Actors.of(jwt), status, PageRequest.of(page, size, order)),
         claim -> ClaimResponse.forStaff(claim, List.of()));
   }
 

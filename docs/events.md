@@ -38,8 +38,8 @@ Topics are created by the compose stack at start (M0b). Each topic has a `.DLT` 
 |---|---|---|---|
 | `user.events` | UserRegistered | auth-service | notification-service |
 | `policy.events` | **PolicyActivated**, **PolicyCancelled**, PolicyExpired | policy-service | payment-service (M4b), claim-service, notification-service |
-| `payment.events` | **PremiumPaid**, **PremiumFailed**, PayoutSucceeded, PayoutFailed | payment-service | policy-service (M4b), claim-service, notification-service |
-| `claim.events` | **ClaimSubmitted**, **ClaimInfoRequested**, **ClaimApproved**, **ClaimRejected** | claim-service | payment-service (M7), notification-service |
+| `payment.events` | **PremiumPaid**, **PremiumFailed**, **PayoutSucceeded**, **PayoutFailed** | payment-service | policy-service (premium events, M4b), claim-service (payout events, M7), notification-service |
+| `claim.events` | **ClaimSubmitted**, **ClaimInfoRequested**, **ClaimApproved**, **ClaimRejected** | claim-service | payment-service (`ClaimApproved`, M7), notification-service |
 
 Payload schemas for each event are added in the milestone that introduces the producer (see PLAN 10). The payload records live in `common-events`; the `type` names are constants in `EventTypes`.
 
@@ -161,6 +161,36 @@ Sent when a reviewer rejects a claim during review. A claim rejected by the auto
 Sent when a reviewer asks the customer for more information. The customer answers with `POST /api/v1/claims/{id}/respond`. Fields: `claimId`, `claimNumber`, `policyId`, `holderUserId`, `message` (what the reviewer needs, shown to the customer), `requestedAt`.
 
 Contract tests: `EventPayloadContractTest` (`claimApprovedRoundTripsAndKeepsMoneyExact`, `claimRejectedRoundTripsWithItsReason`, `claimInfoRequestedRoundTripsWithItsMessage`).
+
+### PayoutSucceeded v1 (`payment.events`, payment-service, M7)
+
+Sent in the same transaction as the successful payout attempt, for the first attempt and for a successful retry. The envelope's aggregate id (and Kafka key) is the **claim id**, so every event of one claim stays in order. claim-service moves the claim to PAID.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `paymentId` | UUID | The payout payment |
+| `claimId`, `claimNumber` | UUID, string | The claim that was paid |
+| `holderUserId` | UUID | The customer who was paid |
+| `amount` | decimal | What was paid. `NUMERIC(19,2)` |
+| `currency` | string | ISO code |
+| `providerRef` | string | The mock provider's reference |
+| `paidAt` | instant | When the provider confirmed the payout |
+
+### PayoutFailed v1 (`payment.events`, payment-service, M7)
+
+Sent for a failed first attempt and again for every failed retry. Fields as for `PayoutSucceeded`, with `reason` (a stable code such as `PROVIDER_DECLINED`, never free text) and `failedAt` in place of `providerRef` and `paidAt`. claim-service moves a PAYOUT_PENDING claim to PAYOUT_FAILED and ignores the event for a claim that is already PAYOUT_FAILED or PAID.
+
+Contract tests: `EventPayloadContractTest` (`payoutSucceededRoundTripsAndKeepsMoneyExact`, `payoutFailedRoundTripsWithAStableReason`, `thePayoutEventTypesAreTheNamesOnTheWire`).
+
+### The payout saga (M7, ADR-018)
+
+1. claim-service approves a claim: in one transaction the claim goes APPROVED then PAYOUT_PENDING and `ClaimApproved` is written to the outbox (key: claim id).
+2. payment-service reads `ClaimApproved` and creates one payout payment for the claim. The event's `eventId` is the payout's intent key and the idempotency key of its first attempt. It asks the mock provider to pay and writes `PayoutSucceeded` or `PayoutFailed` through its outbox.
+3. claim-service reads the result: PAYOUT_PENDING to PAID, or PAYOUT_FAILED. After a failure an admin retries with `POST /api/v1/payments/{id}/retry-payout`; a successful retry sends `PayoutSucceeded` again and the claim passes PAYOUT_FAILED, PAYOUT_PENDING, PAID.
+
+Redelivery is harmless at every step: each consumer checks its inbox, and a claim can only have one payout row.
+
+Skipped by design: payment-service ignores `ClaimSubmitted`, `ClaimRejected` and `ClaimInfoRequested`; policy-service ignores the two payout events; claim-service ignores the two premium events. Only unknown types go to the dead-letter topic.
 
 ## Policy terms snapshot v1
 

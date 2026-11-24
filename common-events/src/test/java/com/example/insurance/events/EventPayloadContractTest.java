@@ -6,6 +6,8 @@ import com.example.insurance.events.claim.ClaimApproved;
 import com.example.insurance.events.claim.ClaimInfoRequested;
 import com.example.insurance.events.claim.ClaimRejected;
 import com.example.insurance.events.claim.ClaimSubmitted;
+import com.example.insurance.events.payment.PayoutFailed;
+import com.example.insurance.events.payment.PayoutSucceeded;
 import com.example.insurance.events.payment.PremiumFailed;
 import com.example.insurance.events.payment.PremiumPaid;
 import com.example.insurance.events.policy.PolicyActivated;
@@ -260,5 +262,62 @@ class EventPayloadContractTest {
     assertThat(EventTypes.CLAIM_APPROVED).isEqualTo("ClaimApproved");
     assertThat(EventTypes.CLAIM_REJECTED).isEqualTo("ClaimRejected");
     assertThat(EventTypes.CLAIM_INFO_REQUESTED).isEqualTo("ClaimInfoRequested");
+  }
+
+  @Test
+  void payoutSucceededRoundTripsAndKeepsMoneyExact() {
+    UUID claimId = UUID.fromString("c1a1a1a1-2222-4333-8444-555555555555");
+    EventEnvelope<PayoutSucceeded> event =
+        envelope(
+            "PayoutSucceeded",
+            new PayoutSucceeded(
+                PAYMENT_ID,
+                claimId,
+                "CLM-ACACIA-2026-000001",
+                HOLDER_ID,
+                new BigDecimal("1200.00"),
+                "KES",
+                "mock-payout-1",
+                Instant.parse("2026-11-22T10:00:00Z")));
+
+    EventEnvelope<PayoutSucceeded> readBack =
+        roundTrip(event, new TypeReference<EventEnvelope<PayoutSucceeded>>() {});
+
+    assertThat(readBack.payload().amount()).isEqualByComparingTo("1200.00");
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"claimId\":\"" + claimId + "\"")
+        .contains("\"holderUserId\":\"" + HOLDER_ID + "\"")
+        .contains("\"amount\":1200.00")
+        .contains("\"providerRef\":\"mock-payout-1\"")
+        .contains("\"paidAt\":");
+  }
+
+  @Test
+  void payoutFailedRoundTripsWithAStableReason() {
+    UUID claimId = UUID.fromString("c1a1a1a1-2222-4333-8444-555555555555");
+    EventEnvelope<PayoutFailed> event =
+        envelope(
+            "PayoutFailed",
+            new PayoutFailed(
+                PAYMENT_ID,
+                claimId,
+                "CLM-ACACIA-2026-000001",
+                HOLDER_ID,
+                new BigDecimal("1200.00"),
+                "KES",
+                "PROVIDER_DECLINED",
+                Instant.parse("2026-11-22T10:00:00Z")));
+
+    roundTrip(event, new TypeReference<EventEnvelope<PayoutFailed>>() {});
+
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"reason\":\"PROVIDER_DECLINED\"")
+        .contains("\"failedAt\":");
+  }
+
+  @Test
+  void thePayoutEventTypesAreTheNamesOnTheWire() {
+    assertThat(EventTypes.PAYOUT_SUCCEEDED).isEqualTo("PayoutSucceeded");
+    assertThat(EventTypes.PAYOUT_FAILED).isEqualTo("PayoutFailed");
   }
 }

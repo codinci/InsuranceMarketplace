@@ -1178,9 +1178,17 @@
       "get" : {
         "tags" : [ "Review" ],
         "summary" : "The review queue",
-        "description" : "Claims awaiting review for your insurer (every insurer for a platform admin), flagged claims first, then oldest first.",
+        "description" : "Claims awaiting review for your insurer (every insurer for a platform admin), flagged claims first, then oldest first. Pass status (for example PAYOUT_FAILED) to list claims in that status instead.",
         "operationId" : "queue",
         "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "SUBMITTED", "UNDER_REVIEW", "INFO_REQUESTED", "REJECTED", "APPROVED", "PAYOUT_PENDING", "PAID", "PAYOUT_FAILED", "WITHDRAWN" ]
+          }
+        }, {
           "name" : "page",
           "in" : "query",
           "required" : false,
@@ -1214,7 +1222,7 @@
             }
           },
           "400" : {
-            "description" : "Bad paging parameters (VALIDATION_FAILED)",
+            "description" : "Bad paging parameters or unknown status (VALIDATION_FAILED)",
             "content" : {
               "*/*" : {
                 "schema" : {

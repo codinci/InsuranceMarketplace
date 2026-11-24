@@ -339,9 +339,67 @@ STARTED=$(call 200 "$BASE/api/v1/claims/$REVIEW_CLAIM/start-review" -X POST -H "
 printf '%s' "$STARTED" | grep '"status":"UNDER_REVIEW"' >/dev/null && printf '%s' "$STARTED" | grep '"amountEligible":2000' >/dev/null \
   && echo "review started; the per-visit cap makes 2000 payable" || { echo "FAILED: unexpected review start: $STARTED" >&2; exit 1; }
 APPROVED=$(call 200 "$BASE/api/v1/claims/$REVIEW_CLAIM/approve" -X POST -H "$JSON" -H "Authorization: Bearer $ADJUSTER" -d '{}')
-printf '%s' "$APPROVED" | grep '"status":"APPROVED"' >/dev/null && printf '%s' "$APPROVED" | grep '"amountApproved":2000' >/dev/null \
-  && echo "approved for 2000 of the 3000 claimed" || { echo "FAILED: unexpected approval: $APPROVED" >&2; exit 1; }
+printf '%s' "$APPROVED" | grep '"status":"PAYOUT_PENDING"' >/dev/null && printf '%s' "$APPROVED" | grep '"amountApproved":2000' >/dev/null \
+  && echo "approved for 2000 of the 3000 claimed; the claim now waits for its payout" || { echo "FAILED: unexpected approval: $APPROVED" >&2; exit 1; }
 call 200 "$BASE/api/v1/claims/$REVIEW_CLAIM" -H "Authorization: Bearer $BUYER" | grep '"amountApproved":2000' >/dev/null \
   && echo "the customer sees the approved amount" || fail "the customer sees the approved amount"
+
+step "payouts: ClaimApproved is paid by payment-service and the claim reaches PAID"
+# await_claim TOKEN ID STATUS: waits up to 30 seconds for the claim to reach STATUS (events are asynchronous).
+await_claim() {
+  local i current=""
+  for i in $(seq 1 60); do
+    current=$(field "$(call 200 "$BASE/api/v1/claims/$2" -H "Authorization: Bearer $1")" status)
+    [ "$current" = "$3" ] && return 0
+    sleep 0.5
+  done
+  echo "claim $2 stayed $current, expected $3" >&2
+  return 1
+}
+await_claim "$BUYER" "$REVIEW_CLAIM" PAID && echo "claim $REVIEW_CLAIM is PAID" || fail "claim $REVIEW_CLAIM is PAID"
+call 200 "$BASE/api/v1/claims/$REVIEW_CLAIM/history?size=20" -H "Authorization: Bearer $BUYER" | grep '"to":"PAID"' >/dev/null \
+  && echo "the history shows the payout" || fail "the history shows the payout"
+PAYOUT=$(call 200 "$BASE/api/v1/payments/payouts?claimId=$REVIEW_CLAIM" -H "Authorization: Bearer $ADMIN_TOKEN")
+printf '%s' "$PAYOUT" | grep '"status":"SUCCEEDED"' >/dev/null && printf '%s' "$PAYOUT" | grep '"referenceType":"CLAIM"' >/dev/null \
+  && echo "an admin sees the successful payout" || fail "an admin sees the successful payout"
+call 404 "$BASE/api/v1/payments/payouts?claimId=$REVIEW_CLAIM" -H "Authorization: Bearer $OTHER_TOKEN" > /dev/null \
+  && echo "another insurer's admin cannot see the payout" || fail "another insurer's admin cannot see the payout"
+call 403 "$BASE/api/v1/payments/payouts?claimId=$REVIEW_CLAIM" -H "Authorization: Bearer $ADJUSTER" > /dev/null \
+  && echo "an adjuster cannot reach payouts" || fail "an adjuster cannot reach payouts"
+
+step "payouts: a declined payout fails the claim, and an admin's retry pays it"
+# The mock provider declines this customer's payouts while payment-service runs with the setting. The
+# payout row lives in payment-service's database, so it survives the restarts.
+PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES="$BUYER_ID" docker compose --profile full up -d --wait payment-service > /dev/null 2>&1 \
+  && echo "payment-service restarted with the buyer's payouts declined" || fail "payment-service restarted with the buyer's payouts declined"
+FAIL_CLAIM=$(field "$(call 201 "$BASE/api/v1/claims" -H "$JSON" -H "Authorization: Bearer $BUYER" \
+  -d "{\"policyId\":\"$REVIEW_POLICY\",\"claim\":{\"memberId\":\"SMOKE-M1\",\"moduleCode\":\"OUTPATIENT\",\"benefitCode\":\"OP-CONSULT\",\"cause\":\"ACCIDENT\",\"surgical\":false,\"conditionTags\":[],\"incidentDate\":\"$(date -u -d '-2 days' +%F)\",\"providerName\":\"Smoke Clinic Two\",\"description\":\"Second smoke consultation\",\"amountClaimed\":1000.00}}")" id)
+call 201 "$BASE/api/v1/claims/$FAIL_CLAIM/documents" -H "Authorization: Bearer $BUYER" \
+  -F "docType=RECEIPT" -F "file=@$SMOKE_DOC;type=application/pdf" > /dev/null
+call 200 "$BASE/api/v1/claims/$FAIL_CLAIM/submit" -X POST -H "Authorization: Bearer $BUYER" > /dev/null
+call 200 "$BASE/api/v1/claims/$FAIL_CLAIM/start-review" -X POST -H "Authorization: Bearer $ADJUSTER" > /dev/null
+call 200 "$BASE/api/v1/claims/$FAIL_CLAIM/approve" -X POST -H "$JSON" -H "Authorization: Bearer $ADJUSTER" -d '{}' > /dev/null
+await_claim "$BUYER" "$FAIL_CLAIM" PAYOUT_FAILED && echo "claim $FAIL_CLAIM is PAYOUT_FAILED" || fail "claim $FAIL_CLAIM is PAYOUT_FAILED"
+call 200 "$BASE/api/v1/claims/queue?status=PAYOUT_FAILED&size=100" -H "Authorization: Bearer $ADJUSTER" | grep "\"id\":\"$FAIL_CLAIM\"" >/dev/null \
+  && echo "the adjuster finds it in the failed-payout list" || fail "the adjuster finds it in the failed-payout list"
+FAILED_PAYOUT=$(call 200 "$BASE/api/v1/payments/payouts?claimId=$FAIL_CLAIM" -H "Authorization: Bearer $ADMIN_TOKEN")
+PAYOUT_ID=$(field "$FAILED_PAYOUT" id)
+printf '%s' "$FAILED_PAYOUT" | grep '"status":"FAILED"' >/dev/null && [ -n "$PAYOUT_ID" ] \
+  && echo "the payout is FAILED" || fail "the payout is FAILED"
+
+docker compose --profile full up -d --wait payment-service > /dev/null 2>&1 \
+  && echo "payment-service restarted with no declined payees" || fail "payment-service restarted with no declined payees"
+call 400 "$BASE/api/v1/payments/$PAYOUT_ID/retry-payout" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" | grep '"IDEMPOTENCY_KEY_REQUIRED"' >/dev/null \
+  && echo "a retry without an Idempotency-Key is refused" || fail "a retry without an Idempotency-Key is refused"
+call 404 "$BASE/api/v1/payments/$PAYOUT_ID/retry-payout" -X POST -H "Authorization: Bearer $OTHER_TOKEN" -H "Idempotency-Key: $(uuid)" > /dev/null \
+  && echo "another insurer's admin cannot retry it" || fail "another insurer's admin cannot retry it"
+RETRY_KEY=$(uuid)
+call 200 "$BASE/api/v1/payments/$PAYOUT_ID/retry-payout" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Idempotency-Key: $RETRY_KEY" | grep '"status":"SUCCEEDED"' >/dev/null \
+  && echo "the retry succeeded" || fail "the retry succeeded"
+call 200 "$BASE/api/v1/payments/$PAYOUT_ID/retry-payout" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Idempotency-Key: $RETRY_KEY" | grep '"status":"SUCCEEDED"' >/dev/null \
+  && echo "repeating the same key returns the same result" || fail "repeating the same key returns the same result"
+call 409 "$BASE/api/v1/payments/$PAYOUT_ID/retry-payout" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Idempotency-Key: $(uuid)" | grep '"PAYOUT_NOT_RETRYABLE"' >/dev/null \
+  && echo "a paid payout cannot be retried again" || fail "a paid payout cannot be retried again"
+await_claim "$BUYER" "$FAIL_CLAIM" PAID && echo "claim $FAIL_CLAIM is PAID after the retry" || fail "claim $FAIL_CLAIM is PAID after the retry"
 
 printf '\nsmoke.sh: all steps passed\n'
