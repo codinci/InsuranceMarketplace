@@ -13,6 +13,7 @@ import com.example.insurance.events.payment.PremiumPaid;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
 import com.example.insurance.events.policy.TermsSnapshot;
+import com.example.insurance.events.user.UserRegistered;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -60,6 +61,7 @@ class EventPayloadContractTest {
                 PAYMENT_ID,
                 POLICY_ID,
                 "POL-ACACIA-2026-000001",
+                HOLDER_ID,
                 new BigDecimal("12500.00"),
                 "KES",
                 "mock-ref-1"));
@@ -81,7 +83,7 @@ class EventPayloadContractTest {
         envelope(
             "PremiumFailed",
             new PremiumFailed(
-                PAYMENT_ID, POLICY_ID, "POL-ACACIA-2026-000001", "PROVIDER_DECLINED"));
+                PAYMENT_ID, POLICY_ID, "POL-ACACIA-2026-000001", HOLDER_ID, "PROVIDER_DECLINED"));
 
     roundTrip(event, new TypeReference<EventEnvelope<PremiumFailed>>() {});
 
@@ -94,7 +96,12 @@ class EventPayloadContractTest {
         envelope(
             "PolicyCancelled",
             new PolicyCancelled(
-                POLICY_ID, "POL-ACACIA-2026-000001", 3, "UNPAID", LocalDate.of(2026, 12, 31)));
+                POLICY_ID,
+                "POL-ACACIA-2026-000001",
+                HOLDER_ID,
+                3,
+                "UNPAID",
+                LocalDate.of(2026, 12, 31)));
 
     roundTrip(event, new TypeReference<EventEnvelope<PolicyCancelled>>() {});
 
@@ -169,6 +176,7 @@ class EventPayloadContractTest {
                 UUID.fromString("c1a1a1a1-2222-4333-8444-555555555555"),
                 "CLM-ACACIA-2026-000001",
                 POLICY_ID,
+                HOLDER_ID,
                 "MEM-ACACIA-2026-000001-0",
                 "OUTPATIENT",
                 "OP-CONSULT",
@@ -319,5 +327,37 @@ class EventPayloadContractTest {
   void thePayoutEventTypesAreTheNamesOnTheWire() {
     assertThat(EventTypes.PAYOUT_SUCCEEDED).isEqualTo("PayoutSucceeded");
     assertThat(EventTypes.PAYOUT_FAILED).isEqualTo("PayoutFailed");
+  }
+
+  @Test
+  void userRegisteredRoundTripsAndCarriesNoSecrets() {
+    EventEnvelope<UserRegistered> event =
+        envelope(
+            EventTypes.USER_REGISTERED,
+            new UserRegistered(HOLDER_ID, "amina@example.com", "Amina", "Test"));
+
+    roundTrip(event, new TypeReference<EventEnvelope<UserRegistered>>() {});
+
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"email\":\"amina@example.com\"")
+        .doesNotContain("password")
+        .doesNotContain("nationalId")
+        .doesNotContain("roles");
+  }
+
+  @Test
+  void holderUserIdIsOnTheFourEventsAConsumerNeedsItFor() {
+    assertThat(
+            mapper.writeValueAsString(
+                new PremiumFailed(PAYMENT_ID, POLICY_ID, "P", HOLDER_ID, "R")))
+        .contains("\"holderUserId\":\"" + HOLDER_ID + "\"");
+    assertThat(
+            mapper
+                .readValue(
+                    "{\"paymentId\":null,\"policyId\":null,\"policyNumber\":\"P\",\"reason\":\"R\"}",
+                    PremiumFailed.class)
+                .holderUserId())
+        .as("an event from before M8a has no holder and still reads")
+        .isNull();
   }
 }

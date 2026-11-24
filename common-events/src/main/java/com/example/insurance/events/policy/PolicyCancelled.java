@@ -11,6 +11,7 @@ import java.util.UUID;
  *
  * @param policyId the policy
  * @param policyNumber human-readable policy number
+ * @param holderUserId the customer who holds the policy, so a consumer can notify them
  * @param policyVersion increases with every change to this policy
  * @param reason a stable code, for example {@code UNPAID}
  * @param effectiveDate the day cover ends because of the cancellation
@@ -19,6 +20,7 @@ import java.util.UUID;
 public record PolicyCancelled(
     UUID policyId,
     String policyNumber,
+    UUID holderUserId,
     long policyVersion,
     String reason,
     LocalDate effectiveDate) {

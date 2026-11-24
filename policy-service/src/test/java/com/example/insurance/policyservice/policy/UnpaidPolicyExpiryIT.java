@@ -83,7 +83,13 @@ class UnpaidPolicyExpiryIT extends AbstractPolicyFlowIT {
         UUID.randomUUID(),
         insurerId,
         new PremiumPaid(
-            paymentId, policyId, policyNumber, new BigDecimal("50175.00"), "KES", "MOCK-1"));
+            paymentId,
+            policyId,
+            policyNumber,
+            UUID.randomUUID(),
+            new BigDecimal("50175.00"),
+            "KES",
+            "MOCK-1"));
     Thread.sleep(3_000);
 
     assertThat(status()).isEqualTo("CANCELLED");
@@ -98,7 +104,13 @@ class UnpaidPolicyExpiryIT extends AbstractPolicyFlowIT {
         UUID.randomUUID(),
         insurerId,
         new PremiumPaid(
-            paymentId, policyId, policyNumber, new BigDecimal("50175.00"), "KES", "MOCK-1"));
+            paymentId,
+            policyId,
+            policyNumber,
+            UUID.randomUUID(),
+            new BigDecimal("50175.00"),
+            "KES",
+            "MOCK-1"));
     long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
     while (!"ACTIVE".equals(status()) && System.nanoTime() < deadline) {
       Thread.sleep(200);

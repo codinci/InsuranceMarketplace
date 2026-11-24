@@ -14,6 +14,7 @@ import java.util.UUID;
  * @param claimId the claim
  * @param claimNumber the human-readable claim number
  * @param policyId the policy the claim is against
+ * @param holderUserId the customer who made the claim, so a consumer can notify them
  * @param memberId the member's number on the policy
  * @param moduleCode the module of the benefit
  * @param benefitCode the benefit claimed
@@ -28,6 +29,7 @@ public record ClaimSubmitted(
     UUID claimId,
     String claimNumber,
     UUID policyId,
+    UUID holderUserId,
     String memberId,
     String moduleCode,
     String benefitCode,

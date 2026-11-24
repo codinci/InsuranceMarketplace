@@ -129,6 +129,7 @@ public class PaymentService {
               payment.getId(),
               payment.getReferenceId(),
               payment.getReferenceNumber(),
+              payment.getHolderUserId(),
               payment.getAmount(),
               payment.getCurrency(),
               charge.providerRef()));
@@ -152,6 +153,7 @@ public class PaymentService {
               payment.getId(),
               payment.getReferenceId(),
               payment.getReferenceNumber(),
+              payment.getHolderUserId(),
               charge.failureReason()));
     }
     return PaymentResponse.of(payment, payment.getStatus());
