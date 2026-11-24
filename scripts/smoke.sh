@@ -402,4 +402,21 @@ call 409 "$BASE/api/v1/payments/$PAYOUT_ID/retry-payout" -X POST -H "Authorizati
   && echo "a paid payout cannot be retried again" || fail "a paid payout cannot be retried again"
 await_claim "$BUYER" "$FAIL_CLAIM" PAID && echo "claim $FAIL_CLAIM is PAID after the retry" || fail "claim $FAIL_CLAIM is PAID after the retry"
 
+step "notifications: the buyer was told about registration, payment, approval and both payout outcomes"
+# notification-service has no API, so read its log table through the compose Postgres.
+notified() {
+  MSYS_NO_PATHCONV=1 docker compose --profile full exec -T postgres psql -U insurance -d notification_db -tA \
+    -c "SELECT count(*) FROM notification_log WHERE recipient_user_id = '$1' AND type = '$2'" | tr -d '[:space:]'
+}
+await_notified() {
+  for _ in $(seq 1 30); do
+    [ "$(notified "$1" "$2")" = "0" ] || return 0
+    sleep 2
+  done
+  return 1
+}
+for TYPE in UserRegistered PremiumPaid ClaimApproved PayoutFailed PayoutSucceeded; do
+  await_notified "$BUYER_ID" "$TYPE" && echo "the buyer has a $TYPE notification" || fail "the buyer has a $TYPE notification"
+done
+
 printf '\nsmoke.sh: all steps passed\n'
