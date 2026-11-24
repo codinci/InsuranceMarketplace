@@ -10,7 +10,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Base for integration tests: one Postgres 17 container (the same major version as compose) shared
@@ -30,8 +32,13 @@ abstract class AbstractAuthIT {
   @ServiceConnection
   static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17.12-alpine");
 
+  @ServiceConnection
+  static final KafkaContainer KAFKA =
+      new KafkaContainer(DockerImageName.parse("apache/kafka:4.2.2"));
+
   static {
     POSTGRES.start();
+    KAFKA.start();
   }
 
   @Autowired protected MockMvc mockMvc;
