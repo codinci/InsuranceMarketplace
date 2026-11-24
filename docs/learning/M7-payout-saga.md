@@ -37,6 +37,8 @@
 
 ## Owner's answers
 
-Answered so far: question 1.
+Answered so far: questions 1 and 2.
 
 1. "Since the ClaimApproved event is itself a payment request it should never say approved when a payout exists." Verdict: right on the core idea, and incomplete. The approval event is the payout request, so once it is committed a payout is on its way and the claim must already say PAYOUT_PENDING, not APPROVED. What the answer leaves out is why it is the same transaction: the claim status and the outbox row commit together or not at all, so there is no moment where the event can be relayed while the claim still reads APPROVED, and no crash can leave one without the other. Waiting for payment-service to answer would leave exactly that gap, and would also need an extra acknowledgement event and consumer for behaviour the claim does not need (ADR-018).
+
+2. "The inbox records the event id in the same transaction as the effect and the unique payout row per claim constraint ensures that a claim can only have only one payout row and this ensures that even when the second delivery has a new event id it sees the new id as a new event." Verdict: both layers named correctly, and the ending is muddled. The inbox is the first layer: a redelivery with the same event id finds its row and stops. The unique payout row per claim is the second layer. The last clause needs one correction: with a new event id the inbox does treat it as a new event and lets it through, so the inbox does not help there. It is the unique key on the claim that still works, because the second insert for the same claim is refused, so no second payout is created.
