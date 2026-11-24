@@ -6,7 +6,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
@@ -65,6 +67,29 @@ public class MessagingAutoConfiguration {
       Clock clock,
       @Value("${messaging.consumer-name:${spring.application.name}}") String consumerName) {
     return new Inbox(processed, clock, consumerName);
+  }
+
+  /** Sends dead letters back to their original topic (ADR-019). Does nothing until it is called. */
+  @Bean
+  @ConditionalOnMissingBean
+  DeadLetterReplayer deadLetterReplayer(
+      ConsumerFactory<String, String> consumers,
+      KafkaOperations<String, String> kafka,
+      @Value("${messaging.consumer-name:${spring.application.name}}") String consumerName) {
+    return new DeadLetterReplayer(
+        (groupId, overrides) -> consumers.createConsumer(groupId, null, "dlt-replay", overrides),
+        kafka,
+        consumerName + "-dlt-replay");
+  }
+
+  /** Replays the topics in {@code messaging.dlt.replay-topics} once at start; absent otherwise. */
+  @Bean
+  @ConditionalOnProperty("messaging.dlt.replay-topics")
+  DeadLetterReplayRunner deadLetterReplayRunner(
+      DeadLetterReplayer replayer,
+      @Value("${messaging.dlt.replay-topics}") String[] topics,
+      @Value("${messaging.dlt.replay-max:100}") int max) {
+    return new DeadLetterReplayRunner(replayer, topics, max);
   }
 
   /**
