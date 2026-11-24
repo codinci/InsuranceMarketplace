@@ -34,3 +34,9 @@
 3. The payout test passed on the first run for a premium but every payout stayed PENDING in the database. What was the cause, and what is the one-line fix?
 4. A payout fails and an admin retries it successfully. List the claim's statuses from PAYOUT_FAILED to the end, and say why the claim passes through PAYOUT_PENDING.
 5. Retry is called on a failed payout of insurer B by an adjuster of insurer B, by an admin of insurer A, and by an admin of insurer B. What does each get, and why are the first two answers different?
+
+## Owner's answers
+
+Answered so far: question 1.
+
+1. "Since the ClaimApproved event is itself a payment request it should never say approved when a payout exists." Verdict: right on the core idea, and incomplete. The approval event is the payout request, so once it is committed a payout is on its way and the claim must already say PAYOUT_PENDING, not APPROVED. What the answer leaves out is why it is the same transaction: the claim status and the outbox row commit together or not at all, so there is no moment where the event can be relayed while the claim still reads APPROVED, and no crash can leave one without the other. Waiting for payment-service to answer would leave exactly that gap, and would also need an extra acknowledgement event and consumer for behaviour the claim does not need (ADR-018).
