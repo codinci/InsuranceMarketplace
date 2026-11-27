@@ -231,7 +231,8 @@ public class PolicyService {
         policy.getCurrency());
   }
 
-  private static PolicyResponse toResponse(Policy policy, List<PolicyMember> policyMembers) {
+  /** The customer view of a policy; also used by {@link PolicyCancellationService}. */
+  static PolicyResponse toResponse(Policy policy, List<PolicyMember> policyMembers) {
     return new PolicyResponse(
         policy.getId(),
         policy.getPolicyNumber(),
@@ -256,6 +257,9 @@ public class PolicyService {
                     m.getDateOfBirth(),
                     m.isStudent()))
             .toList(),
-        PolicyJson.read(policy.getTermsSnapshot(), TermsSnapshot.class));
+        PolicyJson.read(policy.getTermsSnapshot(), TermsSnapshot.class),
+        policy.getCancelEffectiveDate(),
+        policy.getCancelReason(),
+        policy.getRefundAmount());
   }
 }

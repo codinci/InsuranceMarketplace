@@ -3,6 +3,7 @@ package com.example.insurance.policyservice.policy.controller;
 import com.example.insurance.policyservice.policy.dto.PolicyResponse;
 import com.example.insurance.policyservice.policy.dto.PolicySummary;
 import com.example.insurance.policyservice.policy.dto.PurchaseRequest;
+import com.example.insurance.policyservice.policy.service.PolicyCancellationService;
 import com.example.insurance.policyservice.policy.service.PolicyService;
 import com.example.insurance.policyservice.web.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,9 +34,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PolicyController {
 
   private final PolicyService policyService;
+  private final PolicyCancellationService cancellations;
 
-  public PolicyController(PolicyService policyService) {
+  public PolicyController(PolicyService policyService, PolicyCancellationService cancellations) {
     this.policyService = policyService;
+    this.cancellations = cancellations;
   }
 
   @PostMapping
@@ -97,5 +100,31 @@ public class PolicyController {
   @ApiResponse(responseCode = "404", description = "No such policy of yours (POLICY_NOT_FOUND)")
   public PolicyResponse get(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID policyId) {
     return policyService.get(Customers.of(jwt), policyId);
+  }
+
+  @PostMapping("/{policyId}/cancel")
+  @SecurityRequirement(name = "bearerAuth")
+  @Operation(
+      summary = "Cancel one of my policies",
+      description =
+          "An active policy is cancelled now, with cover until the plan's notice period ends"
+              + " (cancelEffectiveDate is the first day without cover). The refund follows the"
+              + " plan's rule (pro-rata or none; none after a set number of months or once a"
+              + " claim was submitted, if the plan says so) and payment-service pays it back."
+              + " A policy awaiting payment is cancelled at once with no refund.")
+  @ApiResponse(responseCode = "200", description = "The cancelled policy, with its refund")
+  @ApiResponse(responseCode = "401", description = "No valid access token (UNAUTHENTICATED)")
+  @ApiResponse(responseCode = "403", description = "Not a customer (FORBIDDEN)")
+  @ApiResponse(responseCode = "404", description = "No such policy of yours (POLICY_NOT_FOUND)")
+  @ApiResponse(
+      responseCode = "409",
+      description =
+          "Already cancelled or expired (POLICY_NOT_CANCELLABLE), or changed at the same moment"
+              + " (CONFLICT)")
+  @ApiResponse(
+      responseCode = "422",
+      description = "The notice period would end after the cover does (NOTICE_PAST_END)")
+  public PolicyResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID policyId) {
+    return cancellations.cancel(Customers.of(jwt), policyId);
   }
 }
