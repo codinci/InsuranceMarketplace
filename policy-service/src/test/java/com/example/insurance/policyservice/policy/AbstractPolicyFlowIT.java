@@ -1,10 +1,17 @@
 package com.example.insurance.policyservice.policy;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
+import com.example.insurance.events.EventTypes;
+import com.example.insurance.events.payment.PremiumPaid;
 import com.example.insurance.policyservice.AbstractPolicyIT;
+import com.example.insurance.policyservice.policy.messaging.Topics;
 import com.example.insurance.policyservice.support.TestTokens;
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -137,10 +144,55 @@ abstract class AbstractPolicyFlowIT extends AbstractPolicyIT {
         .andReturn();
   }
 
+  /** A policy bought by {@link #customer}: its id, premium payment and number. */
+  protected record Bought(UUID policyId, UUID paymentId, String policyNumber) {}
+
+  /** Buys a policy from a fresh quote; it awaits payment. Needs the customer's profile. */
+  protected Bought buyPolicy() throws Exception {
+    MvcResult result = purchase(customer, purchaseBody(openQuote(customer), PRINCIPAL_DOB, true));
+    if (result.getResponse().getStatus() != 201) {
+      throw new IllegalStateException(result.getResponse().getContentAsString());
+    }
+    return new Bought(
+        UUID.fromString(read(result, "$.id")),
+        UUID.fromString(read(result, "$.paymentId")),
+        read(result, "$.policyNumber"));
+  }
+
+  /** Announces the premium as paid and waits until the policy is ACTIVE. */
+  protected void pay(Bought policy) throws Exception {
+    publish(
+        Topics.PAYMENT_EVENTS,
+        policy.policyId().toString(),
+        EventTypes.PREMIUM_PAID,
+        UUID.randomUUID(),
+        insurerId,
+        new PremiumPaid(
+            policy.paymentId(),
+            policy.policyId(),
+            policy.policyNumber(),
+            customerId,
+            new BigDecimal("1.00"),
+            "KES",
+            "MOCK-1"));
+    long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
+    while (!"ACTIVE".equals(statusOf(policy.policyId())) && System.nanoTime() < deadline) {
+      Thread.sleep(200);
+    }
+    assertThat(statusOf(policy.policyId())).isEqualTo("ACTIVE");
+  }
+
+  /** The policy's status as its holder sees it. */
+  protected String statusOf(UUID policyId) throws Exception {
+    return read(
+        mockMvc.perform(withToken(get("/api/v1/policies/" + policyId), customer)).andReturn(),
+        "$.status");
+  }
+
   protected static void assertProblem(MvcResult result, int status, String code) throws Exception {
-    org.assertj.core.api.Assertions.assertThat(result.getResponse().getStatus())
+    assertThat(result.getResponse().getStatus())
         .as(result.getResponse().getContentAsString())
         .isEqualTo(status);
-    org.assertj.core.api.Assertions.assertThat((String) read(result, "$.code")).isEqualTo(code);
+    assertThat((String) read(result, "$.code")).isEqualTo(code);
   }
 }

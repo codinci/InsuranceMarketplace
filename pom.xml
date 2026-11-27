@@ -53,6 +53,8 @@
     <spring-cloud.version>2025.1.5</spring-cloud.version>
     <!-- Circuit breaker and retry for internal calls (M4b). Core modules, not the Boot starter. Checked on Central: POM targets Boot 4.0 autoconfigure; core modules have no Spring dependency. -->
     <resilience4j.version>2.4.0</resilience4j.version>
+    <!-- One run of a scheduled job across instances (PLAN 11, M8b, ADR-022). Not managed by Boot 4.1.2. Checked on Central: 7.11.0 is the newest release built against Spring Framework 7.0.10, the version Boot 4.1.2 manages (7.12.0 moved to 7.1). -->
+    <shedlock.version>7.11.0</shedlock.version>
 
     <!-- Line coverage floor per module (PLAN 16.1). Raised per package by ADR, never lowered. -->
     <coverage.line.minimum>0.70</coverage.line.minimum>
@@ -109,6 +111,16 @@
         <groupId>com.bucket4j</groupId>
         <artifactId>bucket4j-core</artifactId>
         <version>${bucket4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>net.javacrumbs.shedlock</groupId>
+        <artifactId>shedlock-spring</artifactId>
+        <version>${shedlock.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>net.javacrumbs.shedlock</groupId>
+        <artifactId>shedlock-provider-jdbc-template</artifactId>
+        <version>${shedlock.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
