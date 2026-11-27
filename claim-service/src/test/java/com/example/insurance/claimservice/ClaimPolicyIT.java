@@ -6,6 +6,8 @@ import com.example.insurance.claimservice.repository.PolicySnapshotRepository;
 import com.example.insurance.claimservice.support.TestSecurityConfig;
 import com.example.insurance.claimservice.support.TestTokens;
 import com.example.insurance.events.EventEnvelope;
+import com.example.insurance.events.policy.PolicyActivated;
+import com.example.insurance.events.policy.PolicyExpired;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -123,6 +125,25 @@ class ClaimPolicyIT extends AbstractClaimIT {
 
     assertThat(this.<Object>read(getWith(mine, "/api/v1/claims/policies/" + policyId), "$.status"))
         .isEqualTo("CANCELLED");
+  }
+
+  @Test
+  void anExpiredPolicyStaysVisibleToItsHolderWithItsCover() throws Exception {
+    UUID policyId = UUID.randomUUID();
+    UUID holder = UUID.randomUUID();
+    PolicyActivated activation = activated(policyId, holder, 2);
+    publish(UUID.randomUUID(), "PolicyActivated", policyId, activation);
+    publish(
+        UUID.randomUUID(),
+        "PolicyExpired",
+        policyId,
+        new PolicyExpired(policyId, activation.policyNumber(), holder, 3, activation.coverEnd()));
+
+    String mine = TestTokens.customer(holder);
+    awaitStatus(mine, policyId, "EXPIRED");
+    MvcResult policy = getWith(mine, "/api/v1/claims/policies/" + policyId);
+    assertThat(this.<Object>read(policy, "$.policyVersion")).isEqualTo(3);
+    assertThat(this.<String>read(policy, "$.coverEnd")).isEqualTo(activation.coverEnd().toString());
   }
 
   @Test

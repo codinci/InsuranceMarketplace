@@ -78,6 +78,17 @@ class HardChecksTest {
   }
 
   @Test
+  void anExpiredPolicyStillCoversIncidentsDuringItsCover() {
+    assertResult(
+        claim(), policy("EXPIRED", null), HardChecks.POLICY_IN_FORCE, AssessmentResult.PASS);
+    assertResult(
+        claim().incident(COVER_END.plusDays(1)),
+        policy("EXPIRED", null),
+        HardChecks.POLICY_IN_FORCE,
+        AssessmentResult.FAIL);
+  }
+
+  @Test
   void aFutureIncidentFails() {
     assertResult(
         claim().incident(TODAY.plusDays(1)),

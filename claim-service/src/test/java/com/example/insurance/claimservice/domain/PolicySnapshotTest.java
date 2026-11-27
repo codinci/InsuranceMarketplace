@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.events.policy.PolicyExpired;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -68,6 +69,29 @@ class PolicySnapshotTest {
   }
 
   @Test
+  void anExpiryAfterTheActivationKeepsTheCoverDates() {
+    PolicySnapshot snapshot = PolicySnapshot.unseen(POLICY, "POL-1", INSURER);
+    snapshot.applyActivated(activated(2), INSURER, ACTIVATION_JSON, NOW);
+
+    assertThat(snapshot.applyExpired(expired(3), INSURER, NOW)).isTrue();
+    assertThat(snapshot.getStatus()).isEqualTo(SnapshotStatus.EXPIRED);
+    assertThat(snapshot.getCoverEnd()).isEqualTo(LocalDate.of(2027, 11, 30));
+    assertThat(snapshot.getPolicyVersion()).isEqualTo(3);
+    assertThat(snapshot.applyExpired(expired(3), INSURER, NOW)).as("redelivered").isFalse();
+  }
+
+  @Test
+  void aStaleExpiryAfterACancellationIsIgnored() {
+    PolicySnapshot snapshot = PolicySnapshot.unseen(POLICY, "POL-1", INSURER);
+    snapshot.applyActivated(activated(2), INSURER, ACTIVATION_JSON, NOW);
+    snapshot.applyCancelled(cancelled(4), INSURER, NOW);
+
+    assertThat(snapshot.applyExpired(expired(3), INSURER, NOW)).isFalse();
+    assertThat(snapshot.getStatus()).isEqualTo(SnapshotStatus.CANCELLED);
+    assertThat(snapshot.getPolicyVersion()).isEqualTo(4);
+  }
+
+  @Test
   void aCustomerOtherThanTheHolderIsNotAnOwner() {
     PolicySnapshot snapshot = PolicySnapshot.unseen(POLICY, "POL-1", INSURER);
     snapshot.applyActivated(activated(2), INSURER, ACTIVATION_JSON, NOW);
@@ -86,6 +110,10 @@ class PolicySnapshotTest {
         LocalDate.of(2027, 11, 30),
         List.of(),
         null);
+  }
+
+  private static PolicyExpired expired(long version) {
+    return new PolicyExpired(POLICY, "POL-1", HOLDER, version, LocalDate.of(2027, 11, 30));
   }
 
   private static PolicyCancelled cancelled(long version) {
