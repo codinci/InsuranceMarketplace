@@ -9,8 +9,12 @@ import com.example.insurance.auth.dto.TokenResponse;
 import com.example.insurance.auth.dto.UserSummary;
 import com.example.insurance.auth.exception.ApiException;
 import com.example.insurance.auth.exception.ErrorCode;
+import com.example.insurance.auth.messaging.Topics;
 import com.example.insurance.auth.repository.UserAccountRepository;
 import com.example.insurance.common.Roles;
+import com.example.insurance.events.EventTypes;
+import com.example.insurance.events.user.UserRegistered;
+import com.example.insurance.messaging.OutboxWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -37,6 +41,7 @@ public class AuthService {
   private final LoginRateLimiter loginRateLimiter;
   private final AuthProperties properties;
   private final Clock clock;
+  private final OutboxWriter outbox;
   private final String timingEqualiserHash;
 
   public AuthService(
@@ -46,7 +51,8 @@ public class AuthService {
       RefreshTokenService refreshTokens,
       LoginRateLimiter loginRateLimiter,
       AuthProperties properties,
-      Clock clock) {
+      Clock clock,
+      OutboxWriter outbox) {
     this.users = users;
     this.passwordEncoder = passwordEncoder;
     this.tokens = tokens;
@@ -54,6 +60,7 @@ public class AuthService {
     this.loginRateLimiter = loginRateLimiter;
     this.properties = properties;
     this.clock = clock;
+    this.outbox = outbox;
     // Checking a password against this hash when the email is unknown makes both answers take the
     // same time.
     this.timingEqualiserHash = passwordEncoder.encode("not-a-real-password-for-timing");
@@ -85,6 +92,15 @@ public class AuthService {
       // Two registrations for the same email raced past the check above; the unique index wins.
       throw emailTaken();
     }
+    // Same transaction as the user row: a registered customer is always announced, and a failed
+    // registration announces nothing (ADR-013).
+    outbox.record(
+        Topics.USER_EVENTS,
+        EventTypes.USER_REGISTERED,
+        UserRegistered.VERSION,
+        user.getId().toString(),
+        null,
+        new UserRegistered(user.getId(), user.getEmail(), user.getFirstName(), user.getLastName()));
     return UserSummaries.of(user);
   }
 

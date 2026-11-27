@@ -21,6 +21,21 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>com.example.insurance</groupId>
+      <artifactId>common-events</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- Outbox, inbox and relay, so registration can announce UserRegistered (ADR-013, M8a). -->
+    <dependency>
+      <groupId>com.example.insurance</groupId>
+      <artifactId>common-messaging</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-kafka</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>
     </dependency>
@@ -96,6 +111,11 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers-postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-kafka</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

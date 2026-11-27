@@ -156,8 +156,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka-topics:
+        condition: service_completed_successfully
     environment:
       JAVA_OPTS: "-Xmx256m"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
       SPRING_DATASOURCE_USERNAME: insurance
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -248,6 +251,32 @@ services:
       start_period: 40s
     mem_limit: 384m
 
+  # Reads every service's events and writes the notification log (PLAN 3, M8a). No public API and nothing routed through
+  # the gateway; the log is read from its database.
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    profiles: [full]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-topics:
+        condition: service_completed_successfully
+    environment:
+      JAVA_OPTS: "-Xmx256m"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: insurance
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    mem_limit: 384m
+
   # The policy read model for claims (PLAN 3, M5a). Not published: customers reach it through the gateway,
   # and it calls policy-service's /internal/policies on the compose network with its own SERVICE token.
   claim-service:
@@ -301,6 +330,8 @@ services:
       payment-service:
         condition: service_healthy
       claim-service:
+        condition: service_healthy
+      notification-service:
         condition: service_healthy
     environment:
       JAVA_OPTS: "-Xmx256m"

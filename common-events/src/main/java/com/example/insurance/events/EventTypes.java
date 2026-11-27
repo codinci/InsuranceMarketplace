@@ -6,6 +6,7 @@ package com.example.insurance.events;
  */
 public final class EventTypes {
 
+  public static final String USER_REGISTERED = "UserRegistered";
   public static final String PREMIUM_PAID = "PremiumPaid";
   public static final String PREMIUM_FAILED = "PremiumFailed";
   public static final String PAYOUT_SUCCEEDED = "PayoutSucceeded";

@@ -36,10 +36,10 @@ Topics are created by the compose stack at start (M0b). Each topic has a `.DLT` 
 
 | Topic | Events (planned; built so far in bold) | Producer | Consumers |
 |---|---|---|---|
-| `user.events` | UserRegistered | auth-service | notification-service |
-| `policy.events` | **PolicyActivated**, **PolicyCancelled**, PolicyExpired | policy-service | payment-service (M4b), claim-service, notification-service |
-| `payment.events` | **PremiumPaid**, **PremiumFailed**, **PayoutSucceeded**, **PayoutFailed** | payment-service | policy-service (premium events, M4b), claim-service (payout events, M7), notification-service |
-| `claim.events` | **ClaimSubmitted**, **ClaimInfoRequested**, **ClaimApproved**, **ClaimRejected** | claim-service | payment-service (`ClaimApproved`, M7), notification-service |
+| `user.events` | **UserRegistered** (M8a) | auth-service | notification-service (M8a) |
+| `policy.events` | **PolicyActivated**, **PolicyCancelled**, PolicyExpired | policy-service | payment-service (M4b), claim-service, notification-service (M8a) |
+| `payment.events` | **PremiumPaid**, **PremiumFailed**, **PayoutSucceeded**, **PayoutFailed** | payment-service | policy-service (premium events, M4b), claim-service (payout events, M7), notification-service (M8a) |
+| `claim.events` | **ClaimSubmitted**, **ClaimInfoRequested**, **ClaimApproved**, **ClaimRejected** | claim-service | payment-service (`ClaimApproved`, M7), notification-service (M8a) |
 
 Payload schemas for each event are added in the milestone that introduces the producer (see PLAN 10). The payload records live in `common-events`; the `type` names are constants in `EventTypes`.
 
@@ -49,9 +49,30 @@ Payload schemas for each event are added in the milestone that introduces the pr
 - **Consumers** record each applied `eventId` in a `processed_events` table (the inbox) in the same transaction as their change. A redelivered event is skipped.
 - **Failures:** a consumer retries a failing message three times, one second apart, then sends it to `<topic>.DLT`. An unknown `type` goes to the DLT at once.
 - **Keys:** the aggregate id (the policy id for every event below), so all events about one policy land on one partition, in order.
+- **Replay (ADR-019):** after the cause is fixed, `DeadLetterReplayer` (common-messaging) sends dead letters back to their original topic with the same key. See the runbook. The inbox makes a replay of an already applied event harmless.
+- **Additive changes only (ADR-020):** a new field may be added to a payload without a new version, because consumers ignore fields they do not know. An event published before the field existed reads with the field `null`; a consumer must cope with that. Renaming, removing or changing the meaning of a field needs a new `version`.
 - **Headers:** every message carries the event `type` as the Kafka header `eventType`, so a consumer or a tool can route or filter without parsing the JSON.
 
+## Recipients (M8a)
+
+Every event a customer should hear about names that customer: `holderUserId` on the policy, payment and claim events, `userId` on `UserRegistered`. `holderUserId` was added in M8a to `PremiumPaid`, `PremiumFailed`, `PolicyCancelled` and `ClaimSubmitted` (ADR-020). Events published before M8a lack it; notification-service skips them and records them as applied.
+
 ## Payloads (M4b)
+
+### UserRegistered v1 (`user.events`, auth-service, M8a)
+
+Sent when a customer registers. The aggregate id is the user id; `insurerId` is null. It carries what a welcome message needs and never a password hash, national ID or role.
+
+```json
+{
+  "userId": "7b3d9f10-5a2e-4c61-8d4f-0e1a2b3c4d5e",
+  "email": "amina@example.com",
+  "firstName": "Amina",
+  "lastName": "Otieno"
+}
+```
+
+The event is written to auth-service's outbox in the registration transaction, so a registered customer is always announced and a refused registration announces nothing. Contract test: `EventPayloadContractTest.userRegisteredRoundTripsAndCarriesNoSecrets`.
 
 ### PremiumPaid v1 (`payment.events`, payment-service)
 
@@ -62,6 +83,7 @@ Sent when a premium payment succeeds. policy-service activates the policy, but o
   "paymentId": "0d6f2a4e-3b1c-4c8e-9a7d-2f5e6b7c8d9e",
   "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
   "policyNumber": "POL-ACACIA-2026-000002",
+  "holderUserId": "7b3d9f10-5a2e-4c61-8d4f-0e1a2b3c4d5e",
   "amount": 12500.00,
   "currency": "KES",
   "providerRef": "mock-6a1f0c2d-9b8e-4f7a-8c3d-2e1f0a9b8c7d"
@@ -77,6 +99,7 @@ Sent when the mock provider declines a payment. The policy stays `PENDING_PAYMEN
   "paymentId": "0d6f2a4e-3b1c-4c8e-9a7d-2f5e6b7c8d9e",
   "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
   "policyNumber": "POL-ACACIA-2026-000002",
+  "holderUserId": "7b3d9f10-5a2e-4c61-8d4f-0e1a2b3c4d5e",
   "reason": "PROVIDER_DECLINED"
 }
 ```
@@ -102,12 +125,13 @@ Sent when a policy becomes `ACTIVE`. It carries everything claim-service needs t
 
 ### PolicyCancelled v1 (`policy.events`, policy-service)
 
-In M4b the only producer is the unpaid-policy job: a policy still `PENDING_PAYMENT` 24 hours after purchase is cancelled with `reason` `UNPAID`. payment-service then marks its payment `EXPIRED`, and a late pay attempt answers 409 `PAYMENT_EXPIRED`. Cancelling a paid policy (D7) arrives in M8.
+In M4b the only producer is the unpaid-policy job: a policy still `PENDING_PAYMENT` 24 hours after purchase is cancelled with `reason` `UNPAID`. payment-service then marks its payment `EXPIRED`, and a late pay attempt answers 409 `PAYMENT_EXPIRED`. Cancelling a paid policy (D7) arrives in M8b.
 
 ```json
 {
   "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
   "policyNumber": "POL-ACACIA-2026-000002",
+  "holderUserId": "7b3d9f10-5a2e-4c61-8d4f-0e1a2b3c4d5e",
   "policyVersion": 2,
   "reason": "UNPAID",
   "effectiveDate": "2026-11-22"
@@ -127,6 +151,7 @@ Sent when a claim passes the hard checks and is accepted for review. A claim the
 | `claimId` | UUID | The claim |
 | `claimNumber` | string | `CLM-<insurerCode>-<year>-<sequence>` |
 | `policyId` | UUID | The policy the claim is against |
+| `holderUserId` | UUID | The customer who made the claim (added in M8a, so a consumer can notify them) |
 | `memberId` | string | The member's number on the policy |
 | `moduleCode`, `benefitCode` | string | The benefit claimed |
 | `cause` | `ACCIDENT` or `ILLNESS` | Why the member needs the benefit |
@@ -242,3 +267,25 @@ Skipped by design: payment-service ignores `ClaimSubmitted`, `ClaimRejected` and
 | `limit`, `copay` | Null when absent. Amounts are decimals in the plan currency; a PERCENT co-pay is a fraction |
 | `waitingRules` | All of the plan's rules; claim-service picks one with the D31 semantics |
 | New fields | Nullable only, so older stored snapshots still read (ADR-011) |
+
+## Consumer: notification-service (M8a, ADR-020)
+
+notification-service reads all four topics and writes one `notification_log` row per event it can address (the channel is the log row itself). It has no public API.
+
+| Event | Subject | Recipient |
+|---|---|---|
+| `UserRegistered` | Welcome | `userId` |
+| `PolicyActivated` | Your policy is active | `holderUserId` |
+| `PolicyCancelled` | Your policy was cancelled | `holderUserId` |
+| `PremiumPaid` | Payment received | `holderUserId` |
+| `PremiumFailed` | Payment failed | `holderUserId` |
+| `ClaimSubmitted` | Claim received | `holderUserId` |
+| `ClaimInfoRequested` | More information needed | `holderUserId` |
+| `ClaimApproved` | Claim approved | `holderUserId` |
+| `ClaimRejected` | Claim rejected | `holderUserId` |
+| `PayoutSucceeded` | Claim paid | `holderUserId` |
+| `PayoutFailed` | Payout delayed | `holderUserId` |
+
+- **Idempotent twice:** the inbox skips a redelivered `eventId`, and `notification_log.event_id` is unique. A different `eventId` for the same business fact is a different event to this service and sends a second notification; producers own "once per fact".
+- **No personal data in the text:** bodies hold numbers and amounts, never a name or an address.
+- **Unknown `type`:** goes to the dead-letter topic of the topic it arrived on. `PolicyExpired` is added when M8b publishes it.

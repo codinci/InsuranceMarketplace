@@ -167,6 +167,7 @@ public abstract class AbstractClaimIT {
     return new PolicyCancelled(
         policyId,
         "POL-ACACIA-2026-" + policyId.toString().substring(0, 6),
+        UUID.randomUUID(),
         version,
         "UNPAID",
         LocalDate.of(2026, 12, 1));

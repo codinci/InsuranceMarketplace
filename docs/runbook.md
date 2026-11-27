@@ -1,6 +1,6 @@
 # Runbook
 
-Operational steps for running the platform locally. Production runbook sections (replay DLT, retry payouts, key rotation, backups) are added in later milestones (PLAN 14).
+Operational steps for running the platform locally. Production runbook sections (key rotation, backups) are added in later milestones (PLAN 14); replaying dead letters and retrying payouts are here.
 
 ## Start and stop (local)
 
@@ -138,7 +138,7 @@ MSYS_NO_PATHCONV=1 docker compose exec -T kafka /opt/kafka/bin/kafka-console-con
 
 Use `payment.events` for the payment side and `<topic>.DLT` for messages a consumer gave up on. Unsent events wait in each service's `outbox_events` table (`published_at` is null); applied ones are in `processed_events`.
 
-**Replaying a dead letter** is a manual procedure until M8: fix the cause, then publish the message value again to the original topic with the same key. The inbox makes a replay of an already applied event harmless.
+**Replaying a dead letter** (ADR-019). Fix the cause first: a message that still fails goes straight back to the DLT. Then start the service that owns the failed consumer once with the dead-letter topics to replay, for example `docker compose run --rm -e MESSAGING_DLT_REPLAY_TOPICS=payment.events.DLT policy-service` (several topics are comma-separated; `MESSAGING_DLT_REPLAY_MAX` limits how many per topic, default 100). The log says `Replayed N message(s) from <topic>`. Each message goes back to its original topic with its key, once: a second run finds nothing new. The inbox makes a replay of an already applied event harmless. Remove the variable afterwards; without it a start never replays anything. To replay the same messages again on purpose, reset the offsets of the group `<service>-dlt-replay`.
 
 **The full gate starts the stack.** `scripts/verify.sh` builds the images, starts the `full` profile, waits until the gateway is healthy and runs `scripts/smoke.sh`. If the stack was not running before, it is stopped again at the end (data volumes are kept).
 
@@ -194,7 +194,21 @@ Without it, the fallback answers 503 `POLICY_UNAVAILABLE` whenever the read mode
 
 **The mock provider and failures.** payment-service property `payments.mock.payout-decline-payees` (environment variable `PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES`, comma-separated holder ids) makes the mock decline payouts to those customers. It is empty in normal use. The smoke script sets it for one customer to prove the failure and retry path, then clears it.
 
-**Replaying a dead letter.** As for premiums (see Payments above): fix the cause, then publish the message value again to the original topic with the same key. The inbox and the unique payout row make a replay harmless.
+**Replaying a dead letter.** As for premiums (see Payments above): fix the cause, then run the replay for the service that failed (ADR-019). The inbox and the unique payout row make a repeat harmless.
+
+## Notifications (M8a)
+
+**What it does.** notification-service reads `user.events`, `policy.events`, `payment.events` and `claim.events` and writes one row per event in `notification_log` (database `notification_db`). It has no public API and is not routed by the gateway. The channel is the row itself.
+
+**Look at what was sent:**
+
+```bash
+MSYS_NO_PATHCONV=1 docker compose exec -T postgres psql -U insurance -d notification_db -c "SELECT type, recipient_user_id, subject, sent_at FROM notification_log ORDER BY sent_at DESC LIMIT 20"
+```
+
+**If a customer says they got nothing.** Check, in order: that the event exists on its topic (see "Look at the events" above); that `docker compose logs notification-service` has a line `Notification ... sent to user ...` for it; a line `names no recipient` means the event is from before M8a and has no holder id (nothing to send); the `<topic>.DLT` topic for a message the service gave up on, then replay it (ADR-019). An event applied twice shows once in `notification_log`, because the event id is unique.
+
+**A new consumer reads history.** On first start, notification-service reads each topic from the beginning, so it sends a notification for every old event that names a customer. Events from before M8a are skipped.
 
 ## Troubleshooting
 

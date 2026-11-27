@@ -28,6 +28,7 @@
     <module>policy-service</module>
     <module>payment-service</module>
     <module>claim-service</module>
+    <module>notification-service</module>
     <module>infra-tests</module>
   </modules>
 

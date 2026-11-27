@@ -11,6 +11,7 @@ COPY auth-service ./auth-service
 COPY api-gateway ./api-gateway
 COPY payment-service ./payment-service
 COPY claim-service ./claim-service
+COPY notification-service ./notification-service
 COPY infra-tests ./infra-tests
 RUN mvn -B -q -pl policy-service -am package -DskipTests
 

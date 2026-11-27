@@ -102,6 +102,7 @@ public class PolicyLifecycleService {
         new PolicyCancelled(
             policy.getId(),
             policy.getPolicyNumber(),
+            policy.getHolderUserId(),
             policy.getPolicyVersion(),
             REASON_UNPAID,
             calendar.today()));

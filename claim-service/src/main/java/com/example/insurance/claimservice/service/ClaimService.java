@@ -167,6 +167,7 @@ public class ClaimService {
               claim.getId(),
               claim.getClaimNumber(),
               claim.getPolicyId(),
+              claim.getHolderUserId(),
               claim.getMemberId(),
               claim.getModuleCode(),
               claim.getBenefitCode(),

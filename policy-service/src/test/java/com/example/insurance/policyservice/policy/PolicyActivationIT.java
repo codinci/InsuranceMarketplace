@@ -128,7 +128,11 @@ class PolicyActivationIT extends AbstractPolicyFlowIT {
         UUID.randomUUID(),
         insurerId,
         new PremiumFailed(
-            bought.paymentId(), bought.policyId(), bought.policyNumber(), "PROVIDER_DECLINED"));
+            bought.paymentId(),
+            bought.policyId(),
+            bought.policyNumber(),
+            UUID.randomUUID(),
+            "PROVIDER_DECLINED"));
     // A later success must still activate it: the failure changed nothing.
     publishPaid(bought, UUID.randomUUID());
 
@@ -146,7 +150,13 @@ class PolicyActivationIT extends AbstractPolicyFlowIT {
         UUID.randomUUID(),
         insurerId,
         new PremiumPaid(
-            UUID.randomUUID(), bought.policyId(), bought.policyNumber(), PREMIUM, "KES", "MOCK-1"));
+            UUID.randomUUID(),
+            bought.policyId(),
+            bought.policyNumber(),
+            UUID.randomUUID(),
+            PREMIUM,
+            "KES",
+            "MOCK-1"));
     Thread.sleep(3_000);
 
     assertThat(status(bought.policyId())).isEqualTo("PENDING_PAYMENT");
@@ -220,6 +230,7 @@ class PolicyActivationIT extends AbstractPolicyFlowIT {
             bought.paymentId(),
             bought.policyId(),
             bought.policyNumber(),
+            UUID.randomUUID(),
             PREMIUM,
             "KES",
             "MOCK-1"));
