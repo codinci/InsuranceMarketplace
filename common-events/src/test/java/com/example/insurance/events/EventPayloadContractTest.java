@@ -10,8 +10,11 @@ import com.example.insurance.events.payment.PayoutFailed;
 import com.example.insurance.events.payment.PayoutSucceeded;
 import com.example.insurance.events.payment.PremiumFailed;
 import com.example.insurance.events.payment.PremiumPaid;
+import com.example.insurance.events.payment.RefundFailed;
+import com.example.insurance.events.payment.RefundSucceeded;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.events.policy.PolicyExpired;
 import com.example.insurance.events.policy.TermsSnapshot;
 import com.example.insurance.events.user.UserRegistered;
 import java.math.BigDecimal;
@@ -101,13 +104,122 @@ class EventPayloadContractTest {
                 HOLDER_ID,
                 3,
                 "UNPAID",
-                LocalDate.of(2026, 12, 31)));
+                LocalDate.of(2026, 12, 31),
+                null));
 
     roundTrip(event, new TypeReference<EventEnvelope<PolicyCancelled>>() {});
 
     assertThat(mapper.writeValueAsString(event))
         .contains("\"policyVersion\":3")
         .contains("\"effectiveDate\":\"2026-12-31\"");
+  }
+
+  @Test
+  void aCustomerCancellationCarriesAnExactRefund() {
+    EventEnvelope<PolicyCancelled> event =
+        envelope(
+            EventTypes.POLICY_CANCELLED,
+            new PolicyCancelled(
+                POLICY_ID,
+                "POL-ACACIA-2026-000001",
+                HOLDER_ID,
+                3,
+                PolicyCancelled.REASON_CUSTOMER,
+                LocalDate.of(2027, 1, 31),
+                new BigDecimal("33750.10")));
+
+    EventEnvelope<PolicyCancelled> readBack =
+        roundTrip(event, new TypeReference<EventEnvelope<PolicyCancelled>>() {});
+
+    assertThat(readBack.payload().refundAmount()).isEqualByComparingTo("33750.10");
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"reason\":\"CUSTOMER\"")
+        .contains("\"refundAmount\":33750.10");
+  }
+
+  @Test
+  void aPolicyCancelledFromBeforeM8bHasNoRefundAndStillReads() {
+    PolicyCancelled old =
+        mapper.readValue(
+            "{\"policyId\":\""
+                + POLICY_ID
+                + "\",\"policyVersion\":2,\"reason\":\"UNPAID\","
+                + "\"effectiveDate\":\"2026-12-01\"}",
+            PolicyCancelled.class);
+
+    assertThat(old.refundAmount()).isNull();
+    assertThat(old.reason()).isEqualTo(PolicyCancelled.REASON_UNPAID);
+  }
+
+  @Test
+  void policyExpiredRoundTrips() {
+    EventEnvelope<PolicyExpired> event =
+        envelope(
+            EventTypes.POLICY_EXPIRED,
+            new PolicyExpired(
+                POLICY_ID, "POL-ACACIA-2026-000001", HOLDER_ID, 4, LocalDate.of(2027, 11, 30)));
+
+    roundTrip(event, new TypeReference<EventEnvelope<PolicyExpired>>() {});
+
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"policyVersion\":4")
+        .contains("\"holderUserId\":\"" + HOLDER_ID + "\"")
+        .contains("\"expiredOn\":\"2027-11-30\"");
+  }
+
+  @Test
+  void refundSucceededRoundTripsAndKeepsMoneyExact() {
+    EventEnvelope<RefundSucceeded> event =
+        envelope(
+            EventTypes.REFUND_SUCCEEDED,
+            new RefundSucceeded(
+                PAYMENT_ID,
+                POLICY_ID,
+                "POL-ACACIA-2026-000001",
+                HOLDER_ID,
+                new BigDecimal("33750.10"),
+                "KES",
+                "mock-refund-1",
+                Instant.parse("2026-11-27T10:00:00Z")));
+
+    EventEnvelope<RefundSucceeded> readBack =
+        roundTrip(event, new TypeReference<EventEnvelope<RefundSucceeded>>() {});
+
+    assertThat(readBack.payload().amount()).isEqualByComparingTo("33750.10");
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"policyId\":\"" + POLICY_ID + "\"")
+        .contains("\"amount\":33750.10")
+        .contains("\"providerRef\":\"mock-refund-1\"")
+        .contains("\"refundedAt\":");
+  }
+
+  @Test
+  void refundFailedRoundTripsWithAStableReason() {
+    EventEnvelope<RefundFailed> event =
+        envelope(
+            EventTypes.REFUND_FAILED,
+            new RefundFailed(
+                PAYMENT_ID,
+                POLICY_ID,
+                "POL-ACACIA-2026-000001",
+                HOLDER_ID,
+                new BigDecimal("33750.10"),
+                "KES",
+                "PROVIDER_DECLINED",
+                Instant.parse("2026-11-27T10:00:00Z")));
+
+    roundTrip(event, new TypeReference<EventEnvelope<RefundFailed>>() {});
+
+    assertThat(mapper.writeValueAsString(event))
+        .contains("\"reason\":\"PROVIDER_DECLINED\"")
+        .contains("\"failedAt\":");
+  }
+
+  @Test
+  void theLifecycleEventTypesAreTheNamesOnTheWire() {
+    assertThat(EventTypes.POLICY_EXPIRED).isEqualTo("PolicyExpired");
+    assertThat(EventTypes.REFUND_SUCCEEDED).isEqualTo("RefundSucceeded");
+    assertThat(EventTypes.REFUND_FAILED).isEqualTo("RefundFailed");
   }
 
   @Test

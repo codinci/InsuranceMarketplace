@@ -105,7 +105,8 @@ public class PolicyLifecycleService {
             policy.getHolderUserId(),
             policy.getPolicyVersion(),
             REASON_UNPAID,
-            calendar.today()));
+            calendar.today(),
+            null));
     return true;
   }
 

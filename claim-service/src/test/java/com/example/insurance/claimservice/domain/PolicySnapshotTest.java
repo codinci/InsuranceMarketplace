@@ -90,6 +90,6 @@ class PolicySnapshotTest {
 
   private static PolicyCancelled cancelled(long version) {
     return new PolicyCancelled(
-        POLICY, "POL-1", UUID.randomUUID(), version, "UNPAID", LocalDate.of(2026, 12, 1));
+        POLICY, "POL-1", UUID.randomUUID(), version, "UNPAID", LocalDate.of(2026, 12, 1), null);
   }
 }

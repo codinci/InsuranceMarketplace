@@ -11,8 +11,11 @@ public final class EventTypes {
   public static final String PREMIUM_FAILED = "PremiumFailed";
   public static final String PAYOUT_SUCCEEDED = "PayoutSucceeded";
   public static final String PAYOUT_FAILED = "PayoutFailed";
+  public static final String REFUND_SUCCEEDED = "RefundSucceeded";
+  public static final String REFUND_FAILED = "RefundFailed";
   public static final String POLICY_ACTIVATED = "PolicyActivated";
   public static final String POLICY_CANCELLED = "PolicyCancelled";
+  public static final String POLICY_EXPIRED = "PolicyExpired";
   public static final String CLAIM_SUBMITTED = "ClaimSubmitted";
   public static final String CLAIM_APPROVED = "ClaimApproved";
   public static final String CLAIM_REJECTED = "ClaimRejected";

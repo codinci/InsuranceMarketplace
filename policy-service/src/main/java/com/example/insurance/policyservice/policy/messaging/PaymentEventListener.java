@@ -36,8 +36,12 @@ public class PaymentEventListener {
     } else if (EventTypes.PREMIUM_FAILED.equals(type)) {
       EventEnvelope<PremiumFailed> event = EventJson.envelope(message, PremiumFailed.class);
       lifecycle.onPremiumFailed(event.eventId(), event.payload());
-    } else if (EventTypes.PAYOUT_SUCCEEDED.equals(type) || EventTypes.PAYOUT_FAILED.equals(type)) {
-      // Claim payouts are claim-service's business, not the policy's (M7).
+    } else if (EventTypes.PAYOUT_SUCCEEDED.equals(type)
+        || EventTypes.PAYOUT_FAILED.equals(type)
+        || EventTypes.REFUND_SUCCEEDED.equals(type)
+        || EventTypes.REFUND_FAILED.equals(type)) {
+      // Payouts are claim-service's business (M7); the refund is decided here at cancellation
+      // and its outcome only concerns payment-service and the customer (M8b, ADR-021).
       LOG.debug("{} is not used by policy-service; skipped.", type);
     } else {
       throw new UnknownEventTypeException(type);

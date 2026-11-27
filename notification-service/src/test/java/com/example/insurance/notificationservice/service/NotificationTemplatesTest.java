@@ -54,7 +54,7 @@ class NotificationTemplatesTest {
                 null)),
         envelope(
             EventTypes.POLICY_CANCELLED,
-            new PolicyCancelled(ID, "POL-1", holder, 3, "UNPAID", LocalDate.of(2026, 12, 1))),
+            new PolicyCancelled(ID, "POL-1", holder, 3, "UNPAID", LocalDate.of(2026, 12, 1), null)),
         envelope(
             EventTypes.PREMIUM_PAID,
             new PremiumPaid(ID, ID, "POL-1", holder, new BigDecimal("12500.00"), "KES", "mock-1")),

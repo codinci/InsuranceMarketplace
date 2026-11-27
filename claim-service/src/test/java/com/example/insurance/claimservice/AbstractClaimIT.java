@@ -170,7 +170,8 @@ public abstract class AbstractClaimIT {
         UUID.randomUUID(),
         version,
         "UNPAID",
-        LocalDate.of(2026, 12, 1));
+        LocalDate.of(2026, 12, 1),
+        null);
   }
 
   /** The policy as the stub answers it for the fallback. */
