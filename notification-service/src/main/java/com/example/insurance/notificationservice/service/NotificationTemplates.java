@@ -10,8 +10,11 @@ import com.example.insurance.events.payment.PayoutFailed;
 import com.example.insurance.events.payment.PayoutSucceeded;
 import com.example.insurance.events.payment.PremiumFailed;
 import com.example.insurance.events.payment.PremiumPaid;
+import com.example.insurance.events.payment.RefundFailed;
+import com.example.insurance.events.payment.RefundSucceeded;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.events.policy.PolicyExpired;
 import com.example.insurance.events.user.UserRegistered;
 import com.example.insurance.messaging.UnknownEventTypeException;
 import java.math.BigDecimal;
@@ -34,6 +37,7 @@ public final class NotificationTemplates {
           Map.entry(EventTypes.USER_REGISTERED, UserRegistered.class),
           Map.entry(EventTypes.POLICY_ACTIVATED, PolicyActivated.class),
           Map.entry(EventTypes.POLICY_CANCELLED, PolicyCancelled.class),
+          Map.entry(EventTypes.POLICY_EXPIRED, PolicyExpired.class),
           Map.entry(EventTypes.PREMIUM_PAID, PremiumPaid.class),
           Map.entry(EventTypes.PREMIUM_FAILED, PremiumFailed.class),
           Map.entry(EventTypes.CLAIM_SUBMITTED, ClaimSubmitted.class),
@@ -41,7 +45,9 @@ public final class NotificationTemplates {
           Map.entry(EventTypes.CLAIM_APPROVED, ClaimApproved.class),
           Map.entry(EventTypes.CLAIM_REJECTED, ClaimRejected.class),
           Map.entry(EventTypes.PAYOUT_SUCCEEDED, PayoutSucceeded.class),
-          Map.entry(EventTypes.PAYOUT_FAILED, PayoutFailed.class));
+          Map.entry(EventTypes.PAYOUT_FAILED, PayoutFailed.class),
+          Map.entry(EventTypes.REFUND_SUCCEEDED, RefundSucceeded.class),
+          Map.entry(EventTypes.REFUND_FAILED, RefundFailed.class));
 
   private NotificationTemplates() {
     // Pure functions only; not instantiable.
@@ -83,6 +89,13 @@ public final class NotificationTemplates {
                   "Your policy was cancelled",
                   "Policy %s was cancelled (%s), effective %s."
                       .formatted(p.policyNumber(), p.reason(), p.effectiveDate()));
+          case PolicyExpired p ->
+              rendered(
+                  p.holderUserId(),
+                  "Your policy has ended",
+                  "Policy %s covered you until %s. You can still claim for anything that happened"
+                          .formatted(p.policyNumber(), p.expiredOn())
+                      + " during cover.");
           case PremiumPaid p ->
               rendered(
                   p.holderUserId(),
@@ -128,6 +141,18 @@ public final class NotificationTemplates {
                   "Payout delayed",
                   "The payout for claim %s did not go through. We will retry it."
                       .formatted(p.claimNumber()));
+          case RefundSucceeded p ->
+              rendered(
+                  p.holderUserId(),
+                  "Refund paid",
+                  "%s was refunded for cancelled policy %s."
+                      .formatted(money(p.currency(), p.amount()), p.policyNumber()));
+          case RefundFailed p ->
+              rendered(
+                  p.holderUserId(),
+                  "Refund delayed",
+                  "The refund for policy %s did not go through. We will retry it."
+                      .formatted(p.policyNumber()));
           default -> throw new UnknownEventTypeException(event.type());
         };
     return rendered.recipientUserId() == null ? Optional.empty() : Optional.of(rendered);

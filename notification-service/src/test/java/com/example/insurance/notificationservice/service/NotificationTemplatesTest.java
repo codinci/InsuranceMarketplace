@@ -13,8 +13,11 @@ import com.example.insurance.events.payment.PayoutFailed;
 import com.example.insurance.events.payment.PayoutSucceeded;
 import com.example.insurance.events.payment.PremiumFailed;
 import com.example.insurance.events.payment.PremiumPaid;
+import com.example.insurance.events.payment.RefundFailed;
+import com.example.insurance.events.payment.RefundSucceeded;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.events.policy.PolicyExpired;
 import com.example.insurance.events.user.UserRegistered;
 import com.example.insurance.messaging.UnknownEventTypeException;
 import com.example.insurance.notificationservice.service.NotificationTemplates.Rendered;
@@ -99,7 +102,18 @@ class NotificationTemplatesTest {
         envelope(
             EventTypes.PAYOUT_FAILED,
             new PayoutFailed(
-                ID, ID, "CLM-1", holder, new BigDecimal("2000.00"), "KES", "DECLINED", NOW)));
+                ID, ID, "CLM-1", holder, new BigDecimal("2000.00"), "KES", "DECLINED", NOW)),
+        envelope(
+            EventTypes.POLICY_EXPIRED,
+            new PolicyExpired(ID, "POL-1", holder, 4, LocalDate.of(2027, 11, 30))),
+        envelope(
+            EventTypes.REFUND_SUCCEEDED,
+            new RefundSucceeded(
+                ID, ID, "POL-1", holder, new BigDecimal("15500.00"), "KES", "mock-refund-1", NOW)),
+        envelope(
+            EventTypes.REFUND_FAILED,
+            new RefundFailed(
+                ID, ID, "POL-1", holder, new BigDecimal("15500.00"), "KES", "DECLINED", NOW)));
   }
 
   @Test
@@ -136,7 +150,12 @@ class NotificationTemplatesTest {
             .map(e -> NotificationTemplates.render(e).orElseThrow().body())
             .reduce("", String::concat);
 
-    assertThat(all).contains("KES 12500.00").contains("KES 2000.00").contains("POL-1");
+    assertThat(all)
+        .contains("KES 12500.00")
+        .contains("KES 2000.00")
+        .contains("KES 15500.00")
+        .contains("POL-1")
+        .contains("2027-11-30");
     assertThat(all).doesNotContain("Amina").doesNotContain("Otieno").doesNotContain("@");
   }
 
