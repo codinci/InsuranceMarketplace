@@ -26,6 +26,9 @@ public class Payment {
   /** A payout for an approved claim (M7). */
   public static final String REFERENCE_CLAIM = "CLAIM";
 
+  /** A refund of a cancelled policy's premium (M8b). The reference is the policy. */
+  public static final String REFERENCE_REFUND = "REFUND";
+
   @Id private UUID id;
 
   @Column(name = "intent_key", nullable = false, unique = true, length = 80)
@@ -118,9 +121,38 @@ public class Payment {
     return payment;
   }
 
-  /** True for a claim payout, false for a premium. */
+  /**
+   * A refund for a cancelled policy, waiting for its first attempt (M8b, ADR-021). The intent key
+   * is the id of the {@code PolicyCancelled} event, so a redelivered event finds this payment.
+   */
+  public static Payment createRefund(
+      String intentKey,
+      UUID policyId,
+      String policyNumber,
+      UUID insurerId,
+      UUID holderUserId,
+      BigDecimal amount,
+      String currency,
+      Instant now) {
+    Payment payment =
+        create(intentKey, policyId, policyNumber, insurerId, holderUserId, amount, currency, now);
+    payment.referenceType = REFERENCE_REFUND;
+    return payment;
+  }
+
+  /** True for a claim payout. */
   public boolean isPayout() {
     return REFERENCE_CLAIM.equals(referenceType);
+  }
+
+  /** True for a premium refund (M8b). */
+  public boolean isRefund() {
+    return REFERENCE_REFUND.equals(referenceType);
+  }
+
+  /** True when the money goes to the holder (a payout or a refund), so the holder never pays it. */
+  public boolean paysOut() {
+    return isPayout() || isRefund();
   }
 
   /** True when the same creation request (same policy, amount and currency) built this payment. */

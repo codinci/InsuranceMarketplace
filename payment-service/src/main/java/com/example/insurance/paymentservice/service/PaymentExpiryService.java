@@ -3,6 +3,7 @@ package com.example.insurance.paymentservice.service;
 import com.example.insurance.events.policy.PolicyCancelled;
 import com.example.insurance.messaging.Inbox;
 import com.example.insurance.paymentservice.domain.Payment;
+import com.example.insurance.paymentservice.domain.PaymentStatus;
 import com.example.insurance.paymentservice.repository.PaymentRepository;
 import java.time.Clock;
 import java.util.UUID;
@@ -21,15 +22,23 @@ public class PaymentExpiryService {
   private static final Logger LOG = LoggerFactory.getLogger(PaymentExpiryService.class);
 
   private final PaymentRepository payments;
+  private final RefundService refunds;
   private final Inbox inbox;
   private final Clock clock;
 
-  public PaymentExpiryService(PaymentRepository payments, Inbox inbox, Clock clock) {
+  public PaymentExpiryService(
+      PaymentRepository payments, RefundService refunds, Inbox inbox, Clock clock) {
     this.payments = payments;
+    this.refunds = refunds;
     this.inbox = inbox;
     this.clock = clock;
   }
 
+  /**
+   * A cancelled policy: an unpaid premium expires (M4b), and a paid one is refunded when the event
+   * names a refund (M8b, ADR-021). One transaction with the inbox row, so a redelivery does
+   * nothing.
+   */
   @Transactional
   public void onPolicyCancelled(UUID eventId, PolicyCancelled event) {
     if (inbox.alreadyApplied(eventId)) {
@@ -37,19 +46,26 @@ public class PaymentExpiryService {
     }
     payments
         .findByReferenceTypeAndReferenceId(Payment.REFERENCE_POLICY, event.policyId())
-        .ifPresent(this::expireIfPayable);
+        .ifPresent(premium -> closePremium(eventId, premium, event));
     inbox.markApplied(eventId);
   }
 
-  private void expireIfPayable(Payment payment) {
-    if (payment.isPayable()) {
-      payment.expire(clock.instant());
-    } else {
-      // Paid just before the cancellation: the policy service has to reconcile this (PLAN 11, M8).
+  private void closePremium(UUID eventId, Payment premium, PolicyCancelled event) {
+    if (premium.isPayable()) {
+      premium.expire(clock.instant());
+    } else if (premium.getStatus() == PaymentStatus.SUCCEEDED && refundDue(event)) {
+      refunds.refund(eventId, premium, event);
+    } else if (premium.getStatus() == PaymentStatus.SUCCEEDED
+        && PolicyCancelled.REASON_UNPAID.equals(event.reason())) {
+      // Paid just before the unpaid cancellation: reconciliation is parked (PLAN 11).
       LOG.warn(
-          "Policy cancelled but payment {} is {}; left unchanged.",
-          payment.getId(),
-          payment.getStatus());
+          "Policy cancelled as unpaid but premium {} is {}; left unchanged.",
+          premium.getId(),
+          premium.getStatus());
     }
+  }
+
+  private static boolean refundDue(PolicyCancelled event) {
+    return event.refundAmount() != null && event.refundAmount().signum() > 0;
   }
 }

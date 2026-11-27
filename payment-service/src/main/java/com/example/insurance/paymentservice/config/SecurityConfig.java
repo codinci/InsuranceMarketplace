@@ -38,7 +38,11 @@ public class SecurityConfig {
                 .permitAll()
                 .requestMatchers("/internal/**")
                 .hasRole(Roles.SERVICE)
-                .requestMatchers("/api/v1/payments/payouts", "/api/v1/payments/*/retry-payout")
+                .requestMatchers(
+                    "/api/v1/payments/payouts",
+                    "/api/v1/payments/*/retry-payout",
+                    "/api/v1/payments/refunds",
+                    "/api/v1/payments/*/retry-refund")
                 .hasRole(Roles.ADMIN)
                 .requestMatchers("/api/v1/payments/**")
                 .hasRole(Roles.CUSTOMER)

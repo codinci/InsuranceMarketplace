@@ -243,6 +243,7 @@ services:
       # Mock payouts to these holder ids are declined. Empty in normal use; the smoke script sets it
       # to prove the failure and retry path.
       PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES: ${PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES:-}
+      PAYMENTS_MOCK_REFUND_DECLINE_HOLDERS: ${PAYMENTS_MOCK_REFUND_DECLINE_HOLDERS:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
       interval: 10s

@@ -12,7 +12,8 @@ public record PaymentResponse(
     @Schema(description = "Payment id, used in POST /api/v1/payments/{id}/pay") UUID id,
     @Schema(description = "PENDING, SUCCEEDED, FAILED or EXPIRED", example = "PENDING")
         String status,
-    @Schema(example = "POLICY") String referenceType,
+    @Schema(description = "POLICY (a premium), CLAIM (a payout) or REFUND", example = "POLICY")
+        String referenceType,
     UUID referenceId,
     @Schema(example = "POL-ACACIA-2026-000001") String referenceNumber,
     @Schema(example = "12500.00") BigDecimal amount,
