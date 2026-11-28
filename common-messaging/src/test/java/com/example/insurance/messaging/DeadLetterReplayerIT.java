@@ -46,8 +46,12 @@ class DeadLetterReplayerIT {
 
   @AfterAll
   static void stop() {
-    template.destroy();
-    kafka.stop();
+    if (template != null) {
+      template.destroy();
+    }
+    if (kafka != null) {
+      kafka.stop();
+    }
   }
 
   private static Properties consumerProps(String group) {

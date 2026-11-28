@@ -368,10 +368,12 @@ call 403 "$BASE/api/v1/payments/payouts?claimId=$REVIEW_CLAIM" -H "Authorization
   && echo "an adjuster cannot reach payouts" || fail "an adjuster cannot reach payouts"
 
 step "payouts: a declined payout fails the claim, and an admin's retry pays it"
-# The mock provider declines this customer's payouts while payment-service runs with the setting. The
-# payout row lives in payment-service's database, so it survives the restarts.
-PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES="$BUYER_ID" docker compose --profile full up -d --wait payment-service > /dev/null 2>&1 \
-  && echo "payment-service restarted with the buyer's payouts declined" || fail "payment-service restarted with the buyer's payouts declined"
+# The mock provider declines this customer's payouts and refunds while payment-service runs with the settings.
+# The payout and refund rows live in payment-service's database, so they survive the restarts.
+PAYMENTS_MOCK_PAYOUT_DECLINE_PAYEES="$BUYER_ID" PAYMENTS_MOCK_REFUND_DECLINE_HOLDERS="$BUYER_ID" \
+  docker compose --profile full up -d --wait payment-service > /dev/null 2>&1 \
+  && echo "payment-service restarted with the buyer's payouts and refunds declined" \
+  || fail "payment-service restarted with the buyer's payouts and refunds declined"
 FAIL_CLAIM=$(field "$(call 201 "$BASE/api/v1/claims" -H "$JSON" -H "Authorization: Bearer $BUYER" \
   -d "{\"policyId\":\"$REVIEW_POLICY\",\"claim\":{\"memberId\":\"SMOKE-M1\",\"moduleCode\":\"OUTPATIENT\",\"benefitCode\":\"OP-CONSULT\",\"cause\":\"ACCIDENT\",\"surgical\":false,\"conditionTags\":[],\"incidentDate\":\"$(date -u -d '-2 days' +%F)\",\"providerName\":\"Smoke Clinic Two\",\"description\":\"Second smoke consultation\",\"amountClaimed\":1000.00}}")" id)
 call 201 "$BASE/api/v1/claims/$FAIL_CLAIM/documents" -H "Authorization: Bearer $BUYER" \
@@ -387,6 +389,42 @@ PAYOUT_ID=$(field "$FAILED_PAYOUT" id)
 printf '%s' "$FAILED_PAYOUT" | grep '"status":"FAILED"' >/dev/null && [ -n "$PAYOUT_ID" ] \
   && echo "the payout is FAILED" || fail "the payout is FAILED"
 
+step "cancellation: the buyer cancels the paid ACACIA policy, and its pro-rata refund is declined at first"
+# The policy starts in ten days and has no submitted claim, so the plan's rule (pro-rata, none after six months,
+# none once a claim was submitted) gives a refund. payment-service still declines this buyer's refunds here.
+CANCELLED=$(call 200 "$BASE/api/v1/policies/$POLICY_ID/cancel" -X POST -H "Authorization: Bearer $BUYER")
+printf '%s' "$CANCELLED" | grep '"status":"CANCELLED"' >/dev/null \
+  && printf '%s' "$CANCELLED" | grep '"cancelReason":"CUSTOMER"' >/dev/null \
+  && printf '%s' "$CANCELLED" | grep -E '"refundAmount":[1-9][0-9]*(\.[0-9]+)?' >/dev/null \
+  && echo "cancelled with a refund of $(printf '%s' "$CANCELLED" | grep -oE '"refundAmount":[0-9.]+' | cut -d: -f2)" \
+  || { echo "FAILED: unexpected cancellation: $CANCELLED" >&2; exit 1; }
+call 409 "$BASE/api/v1/policies/$POLICY_ID/cancel" -X POST -H "Authorization: Bearer $BUYER" | grep '"POLICY_NOT_CANCELLABLE"' >/dev/null \
+  && echo "a second cancellation is refused" || fail "a second cancellation is refused"
+call 404 "$BASE/api/v1/policies/$POLICY_ID/cancel" -X POST -H "Authorization: Bearer $OTHER_BUYER" | grep '"POLICY_NOT_FOUND"' >/dev/null \
+  && echo "another customer gets 404" || fail "another customer gets 404"
+# await_refund STATUS: waits up to 30 seconds for the policy's refund to reach STATUS, and prints the refund.
+await_refund() {
+  local i found=""
+  for i in $(seq 1 60); do
+    found=$(curl -s "$BASE/api/v1/payments/refunds?policyId=$POLICY_ID" -H "Authorization: Bearer $ADMIN_TOKEN")
+    printf '%s' "$found" | grep "\"status\":\"$1\"" >/dev/null && { printf '%s' "$found"; return 0; }
+    sleep 0.5
+  done
+  echo "FAILED: the refund of $POLICY_ID never reached $1: $found" >&2
+  return 1
+}
+FAILED_REFUND=$(await_refund FAILED) || fail "the refund is FAILED"
+REFUND_ID=$(field "$FAILED_REFUND" id)
+printf '%s' "$FAILED_REFUND" | grep '"referenceType":"REFUND"' >/dev/null && [ -n "$REFUND_ID" ] \
+  && echo "the refund is FAILED" || fail "the refund is FAILED"
+for i in $(seq 1 60); do
+  call 200 "$BASE/api/v1/claims/policies/$POLICY_ID" -H "Authorization: Bearer $BUYER" | grep '"status":"CANCELLED"' >/dev/null && break
+  sleep 0.5
+done
+call 200 "$BASE/api/v1/claims/policies/$POLICY_ID" -H "Authorization: Bearer $BUYER" | grep '"status":"CANCELLED"' >/dev/null \
+  && echo "claim-service sees the cancellation" || fail "claim-service sees the cancellation"
+
+step "payouts and refunds: payment-service runs again with nothing declined"
 docker compose --profile full up -d --wait payment-service > /dev/null 2>&1 \
   && echo "payment-service restarted with no declined payees" || fail "payment-service restarted with no declined payees"
 call 400 "$BASE/api/v1/payments/$PAYOUT_ID/retry-payout" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" | grep '"IDEMPOTENCY_KEY_REQUIRED"' >/dev/null \
@@ -402,7 +440,51 @@ call 409 "$BASE/api/v1/payments/$PAYOUT_ID/retry-payout" -X POST -H "Authorizati
   && echo "a paid payout cannot be retried again" || fail "a paid payout cannot be retried again"
 await_claim "$BUYER" "$FAIL_CLAIM" PAID && echo "claim $FAIL_CLAIM is PAID after the retry" || fail "claim $FAIL_CLAIM is PAID after the retry"
 
-step "notifications: the buyer was told about registration, payment, approval and both payout outcomes"
+step "refunds: an admin's retry pays the declined refund"
+call 404 "$BASE/api/v1/payments/$REFUND_ID/retry-refund" -X POST -H "Authorization: Bearer $OTHER_TOKEN" -H "Idempotency-Key: $(uuid)" > /dev/null \
+  && echo "another insurer's admin cannot retry it" || fail "another insurer's admin cannot retry it"
+call 403 "$BASE/api/v1/payments/$REFUND_ID/retry-refund" -X POST -H "Authorization: Bearer $BUYER" -H "Idempotency-Key: $(uuid)" > /dev/null \
+  && echo "the customer cannot retry it" || fail "the customer cannot retry it"
+REFUND_KEY=$(uuid)
+call 200 "$BASE/api/v1/payments/$REFUND_ID/retry-refund" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Idempotency-Key: $REFUND_KEY" \
+  | grep '"status":"SUCCEEDED"' >/dev/null && echo "the retry refunded the buyer" || fail "the retry refunded the buyer"
+call 200 "$BASE/api/v1/payments/$REFUND_ID/retry-refund" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Idempotency-Key: $REFUND_KEY" \
+  | grep '"status":"SUCCEEDED"' >/dev/null && echo "repeating the same key returns the same result" || fail "repeating the same key returns the same result"
+call 409 "$BASE/api/v1/payments/$REFUND_ID/retry-refund" -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Idempotency-Key: $(uuid)" \
+  | grep '"REFUND_NOT_RETRYABLE"' >/dev/null && echo "a paid refund cannot be retried again" || fail "a paid refund cannot be retried again"
+call 200 "$BASE/api/v1/payments?referenceId=$POLICY_ID" -H "Authorization: Bearer $BUYER" | grep '"referenceType":"REFUND"' >/dev/null \
+  && echo "the buyer sees the refund next to the premium" || fail "the buyer sees the refund next to the premium"
+
+step "expiry: a paid policy whose cover has ended expires, and claim-service sees it"
+# No purchase can start in the past, so this step buys and pays a policy, then moves its cover back a year in
+# policy-service's database. policy-service is restarted with a short check delay; the expiry job also runs at
+# start-up, so the policy expires at once. A second restart puts the default delay back.
+QUOTE3_ID=$(field "$(call 201 "$BASE/api/v1/quotes" -H "$JSON" -H "Authorization: Bearer $BUYER" \
+  -d "{\"planId\":\"$STANDARD\",\"coverType\":\"INDIVIDUAL\",\"startDate\":\"$START\",\"members\":[{\"relationship\":\"PRINCIPAL\",\"sex\":\"FEMALE\",\"dateOfBirth\":\"1990-06-15\",\"student\":false}],\"selectedModules\":{\"INPATIENT\":\"IP-200K\"}}")" id)
+POLICY3=$(call 201 "$BASE/api/v1/policies" -H "$JSON" -H "Authorization: Bearer $BUYER" \
+  -d "{\"quoteId\":\"$QUOTE3_ID\",\"members\":[{\"relationship\":\"PRINCIPAL\",\"sex\":\"FEMALE\",\"dateOfBirth\":\"1990-06-15\",\"student\":false,\"firstName\":\"Smoke\",\"lastName\":\"Buyer\"}],\"declaration\":{\"preExistingConditions\":false,\"accepted\":true}}")
+POLICY3_ID=$(field "$POLICY3" id)
+call 200 "$BASE/api/v1/payments/$(field "$POLICY3" paymentId)/pay" -X POST -H "Authorization: Bearer $BUYER" \
+  -H "Idempotency-Key: smoke-expiry-$(date +%s)" > /dev/null
+await_status "$BUYER" "$POLICY3_ID" ACTIVE && echo "policy $POLICY3_ID is ACTIVE" || fail "policy $POLICY3_ID is ACTIVE"
+MSYS_NO_PATHCONV=1 docker compose --profile full exec -T postgres psql -U insurance -d policy_db -tA -c \
+  "UPDATE policies SET start_date = current_date - 366, end_date = current_date - 2 WHERE id = '$POLICY3_ID'" | grep -q 'UPDATE 1' \
+  && echo "cover moved back so that it ended two days ago" || fail "cover moved back so that it ended two days ago"
+POLICY_EXPIRY_CHECK_DELAY_MS=5000 docker compose --profile full up -d --wait policy-service > /dev/null 2>&1 \
+  && echo "policy-service restarted with a short expiry check" || fail "policy-service restarted with a short expiry check"
+await_status "$BUYER" "$POLICY3_ID" EXPIRED && echo "policy $POLICY3_ID is EXPIRED" || fail "policy $POLICY3_ID is EXPIRED"
+for i in $(seq 1 60); do
+  call 200 "$BASE/api/v1/claims/policies/$POLICY3_ID" -H "Authorization: Bearer $BUYER" | grep '"status":"EXPIRED"' >/dev/null && break
+  sleep 0.5
+done
+call 200 "$BASE/api/v1/claims/policies/$POLICY3_ID" -H "Authorization: Bearer $BUYER" | grep '"status":"EXPIRED"' >/dev/null \
+  && echo "claim-service sees the expiry" || fail "claim-service sees the expiry"
+call 409 "$BASE/api/v1/policies/$POLICY3_ID/cancel" -X POST -H "Authorization: Bearer $BUYER" | grep '"POLICY_NOT_CANCELLABLE"' >/dev/null \
+  && echo "an expired policy cannot be cancelled" || fail "an expired policy cannot be cancelled"
+docker compose --profile full up -d --wait policy-service > /dev/null 2>&1 \
+  && echo "policy-service restarted with the default expiry check" || fail "policy-service restarted with the default expiry check"
+
+step "notifications: the buyer was told about registration, payment, approval, payouts, cancellation, refunds and expiry"
 # notification-service has no API, so read its log table through the compose Postgres.
 notified() {
   MSYS_NO_PATHCONV=1 docker compose --profile full exec -T postgres psql -U insurance -d notification_db -tA \
@@ -415,7 +497,7 @@ await_notified() {
   done
   return 1
 }
-for TYPE in UserRegistered PremiumPaid ClaimApproved PayoutFailed PayoutSucceeded; do
+for TYPE in UserRegistered PremiumPaid ClaimApproved PayoutFailed PayoutSucceeded PolicyCancelled RefundFailed RefundSucceeded PolicyExpired; do
   await_notified "$BUYER_ID" "$TYPE" && echo "the buyer has a $TYPE notification" || fail "the buyer has a $TYPE notification"
 done
 
