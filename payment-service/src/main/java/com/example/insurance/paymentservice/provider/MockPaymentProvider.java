@@ -22,10 +22,13 @@ public class MockPaymentProvider {
   public static final String DECLINED = "PROVIDER_DECLINED";
 
   private final Set<UUID> decliningPayees;
+  private final Set<UUID> decliningRefundHolders;
 
   public MockPaymentProvider(
-      @Value("${payments.mock.payout-decline-payees:}") List<UUID> decliningPayees) {
+      @Value("${payments.mock.payout-decline-payees:}") List<UUID> decliningPayees,
+      @Value("${payments.mock.refund-decline-holders:}") List<UUID> decliningRefundHolders) {
     this.decliningPayees = Set.copyOf(decliningPayees);
+    this.decliningRefundHolders = Set.copyOf(decliningRefundHolders);
   }
 
   public Charge charge(BigDecimal amount, String currency, boolean decline) {
@@ -41,5 +44,13 @@ public class MockPaymentProvider {
       return new Charge(false, null, DECLINED);
     }
     return new Charge(true, "mock-payout-" + UUID.randomUUID(), null);
+  }
+
+  /** Refunds {@code amount} to the policyholder (M8b). Declined for the configured holders. */
+  public Charge refund(UUID holder, BigDecimal amount, String currency) {
+    if (decliningRefundHolders.contains(holder)) {
+      return new Charge(false, null, DECLINED);
+    }
+    return new Charge(true, "mock-refund-" + UUID.randomUUID(), null);
   }
 }

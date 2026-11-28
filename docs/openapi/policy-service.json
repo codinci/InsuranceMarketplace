@@ -402,6 +402,88 @@
         } ]
       }
     },
+    "/api/v1/policies/{policyId}/cancel" : {
+      "post" : {
+        "tags" : [ "Policies" ],
+        "summary" : "Cancel one of my policies",
+        "description" : "An active policy is cancelled now, with cover until the plan's notice period ends (cancelEffectiveDate is the first day without cover). The refund follows the plan's rule (pro-rata or none; none after a set number of months or once a claim was submitted, if the plan says so) and payment-service pays it back. A policy awaiting payment is cancelled at once with no refund.",
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "name" : "policyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The cancelled policy, with its refund",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No valid access token (UNAUTHENTICATED)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Not a customer (FORBIDDEN)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such policy of yours (POLICY_NOT_FOUND)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Already cancelled or expired (POLICY_NOT_CANCELLABLE), or changed at the same moment (CONFLICT)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "The notice period would end after the cover does (NOTICE_PAST_END)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
     "/api/v1/admin/plans/{planId}/retire" : {
       "post" : {
         "tags" : [ "Catalogue admin" ],
@@ -1722,6 +1804,21 @@
           "termsSnapshot" : {
             "$ref" : "#/components/schemas/TermsSnapshot",
             "description" : "Frozen at purchase (ADR-011)."
+          },
+          "cancelEffectiveDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "Set once cancelled: the first day without cover. Incidents before it stay covered (M8b)."
+          },
+          "cancelReason" : {
+            "type" : "string",
+            "description" : "Set once cancelled: UNPAID or CUSTOMER.",
+            "example" : "CUSTOMER"
+          },
+          "refundAmount" : {
+            "type" : "number",
+            "description" : "Set by a customer cancellation: the refund the plan's rule gives, paid back to the holder by payment-service (ADR-021).",
+            "example" : 33500.0
           }
         }
       },

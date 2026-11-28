@@ -4,6 +4,7 @@ import com.example.insurance.claimservice.domain.PolicySnapshot;
 import com.example.insurance.claimservice.repository.PolicySnapshotRepository;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.events.policy.PolicyExpired;
 import com.example.insurance.messaging.Inbox;
 import java.time.Clock;
 import java.util.UUID;
@@ -71,6 +72,28 @@ public class PolicySnapshotService {
     } else {
       LOG.info(
           "PolicyCancelled {} for policy {} is not newer than version {}; ignored.",
+          eventId,
+          event.policyId(),
+          snapshot.getPolicyVersion());
+    }
+    inbox.markApplied(eventId);
+  }
+
+  @Transactional
+  public void onExpired(UUID eventId, UUID insurerId, PolicyExpired event) {
+    if (inbox.alreadyApplied(eventId)) {
+      return;
+    }
+    PolicySnapshot snapshot =
+        snapshots
+            .findById(event.policyId())
+            .orElseGet(
+                () -> PolicySnapshot.unseen(event.policyId(), event.policyNumber(), insurerId));
+    if (snapshot.applyExpired(event, insurerId, clock.instant())) {
+      snapshots.save(snapshot);
+    } else {
+      LOG.info(
+          "PolicyExpired {} for policy {} is not newer than version {}; ignored.",
           eventId,
           event.policyId(),
           snapshot.getPolicyVersion());

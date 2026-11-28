@@ -37,7 +37,10 @@ public class PaymentEventListener {
     } else if (EventTypes.PAYOUT_FAILED.equals(type)) {
       EventEnvelope<PayoutFailed> event = EventJson.envelope(message, PayoutFailed.class);
       outcomes.onPayoutFailed(event.eventId(), event.payload());
-    } else if (EventTypes.PREMIUM_PAID.equals(type) || EventTypes.PREMIUM_FAILED.equals(type)) {
+    } else if (EventTypes.PREMIUM_PAID.equals(type)
+        || EventTypes.PREMIUM_FAILED.equals(type)
+        || EventTypes.REFUND_SUCCEEDED.equals(type)
+        || EventTypes.REFUND_FAILED.equals(type)) {
       LOG.debug("{} is not used by claim-service; skipped.", type);
     } else {
       throw new UnknownEventTypeException(type);

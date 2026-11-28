@@ -109,6 +109,18 @@ Claim-service reads the terms snapshot generically and follows these rules exact
 - **The policy year** counts from the start of cover: year 1 for the first twelve months. A one-year policy is always in year 1.
 - **Examples.** Insurer A: consultation claimed 3,000, `maxPerVisit` 2,000, payable 2,000. Insurer B: consultation claimed 1,500, fixed co-pay 300, payable 1,200.
 
+## Cancellation and refund semantics (D7, M8b, ADR-021)
+
+The `cancellation` block is copied into each policy's terms at purchase, so a later plan version never changes what an existing policy refunds.
+
+- **`noticeDays`.** A holder who cancels an active policy keeps cover until today plus `noticeDays`; that day is the first without cover (`cancelEffectiveDate`). A notice period that would end after the cover is refused (`NOTICE_PAST_END`).
+- **`refund.model`.** `NONE` never refunds. `PRO_RATA` refunds `annualPremium × unusedDays / coverDays`, two decimals, HALF_UP, where unused days run from the effective date to the end date inclusive (none if it is past the end).
+- **`noRefundAfterMonths`** (optional). No refund when the holder asks on or after `startDate + N months`.
+- **`noRefundIfClaims`** (optional). No refund once any claim was submitted against the policy (policy-service counts `ClaimSubmitted` events).
+- A policy that was never paid refunds nothing, whatever the rule.
+
+The two seed insurers show both shapes: ACACIA plans are `PRO_RATA` with six months and claims blocking, BAOBAB plans are `NONE`. The rule is evaluated in `policy.rules.RefundRule` (90% line, 85% branch gate).
+
 ## Rating
 
 Each option has a `rating` object whose `model` selects a strategy. All amounts are annual.

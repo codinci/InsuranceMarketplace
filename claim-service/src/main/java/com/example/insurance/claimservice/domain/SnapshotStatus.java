@@ -6,5 +6,7 @@ package com.example.insurance.claimservice.domain;
  */
 public enum SnapshotStatus {
   ACTIVE,
-  CANCELLED
+  CANCELLED,
+  /** Cover ran to its end date (M8b). Incidents during cover can still be claimed. */
+  EXPIRED
 }

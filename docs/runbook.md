@@ -210,6 +210,28 @@ MSYS_NO_PATHCONV=1 docker compose exec -T postgres psql -U insurance -d notifica
 
 **A new consumer reads history.** On first start, notification-service reads each topic from the beginning, so it sends a notification for every old event that names a customer. Events from before M8a are skipped.
 
+## Cancellation, refunds and expiry (M8b)
+
+**Cancel a policy.** The holder calls `POST /api/v1/policies/{id}/cancel`. An active policy becomes CANCELLED at once, with cover until the plan's notice period ends (`cancelEffectiveDate`, the first day without cover) and a `refundAmount` from the plan's rule. A policy awaiting payment is cancelled with no refund. A second cancellation answers 409 `POLICY_NOT_CANCELLABLE`; a notice period that would end after the cover answers 422 `NOTICE_PAST_END`.
+
+**Why a refund is zero.** The rule is data in the plan (`cancellation.refund`, copied into the policy's terms): `NONE` never refunds; `PRO_RATA` refunds the unused days unless the request came `noRefundAfterMonths` or more after the start, or `noRefundIfClaims` is set and policy-service has seen a `ClaimSubmitted` for the policy. Those claims are in `policy_claims` (database `policy_db`):
+
+```bash
+MSYS_NO_PATHCONV=1 docker compose exec -T postgres psql -U insurance -d policy_db -c "SELECT claim_id, submitted_at FROM policy_claims WHERE policy_id = '<policy id>'"
+```
+
+**Find and retry a refund.** As an admin: `GET /api/v1/payments/refunds?policyId=<policy id>`, then `POST /api/v1/payments/{paymentId}/retry-refund` with an `Idempotency-Key` header. Only a FAILED refund can be retried (`REFUND_NOT_RETRYABLE`, 409); another insurer's refund answers 404. payment-service property `payments.mock.refund-decline-holders` (environment variable `PAYMENTS_MOCK_REFUND_DECLINE_HOLDERS`) makes the mock decline refunds to those holders; it is empty in normal use and the smoke script sets it for one customer.
+
+**Expiry.** The expiry job in policy-service expires ACTIVE policies the day after their end date and sends `PolicyExpired`. It runs at start-up and then every `POLICY_EXPIRY_CHECK_DELAY_MS` milliseconds (default one hour). claim-service keeps an expired policy and accepts claims for incidents during its cover.
+
+**Scheduled jobs and ShedLock (ADR-022).** The unpaid-policy and expiry jobs take a lock in the `shedlock` table of `policy_db` before they run, so with two policy-service instances only one runs a job at a time. To see who holds a lock:
+
+```bash
+MSYS_NO_PATHCONV=1 docker compose exec -T postgres psql -U insurance -d policy_db -c "SELECT name, lock_until, locked_at, locked_by FROM shedlock"
+```
+
+Times are UTC. A lock frees itself at `lock_until` (at most ten minutes after a crash), so a stuck row needs no manual fix.
+
 ## Troubleshooting
 
 - **A service shows "unhealthy" or "starting" for a long time:** `docker compose logs <service>`. Kafka and SeaweedFS can take 30-60 seconds on first start.

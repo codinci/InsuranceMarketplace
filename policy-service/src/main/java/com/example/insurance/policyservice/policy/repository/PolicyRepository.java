@@ -3,6 +3,7 @@ package com.example.insurance.policyservice.policy.repository;
 import com.example.insurance.policyservice.policy.domain.Policy;
 import com.example.insurance.policyservice.policy.domain.PolicyStatus;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,4 +29,11 @@ public interface PolicyRepository extends JpaRepository<Policy, UUID> {
           + " order by p.createdAt")
   List<UUID> findIdsByStatusCreatedBefore(
       @Param("status") PolicyStatus status, @Param("cutoff") Instant cutoff, Pageable pageable);
+
+  /** Ids of policies in {@code status} whose cover ended before {@code day}, earliest first. */
+  @Query(
+      "select p.id from Policy p where p.status = :status and p.endDate < :day"
+          + " order by p.endDate, p.id")
+  List<UUID> findIdsByStatusEndingBefore(
+      @Param("status") PolicyStatus status, @Param("day") LocalDate day, Pageable pageable);
 }

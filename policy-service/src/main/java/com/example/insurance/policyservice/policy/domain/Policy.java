@@ -1,5 +1,6 @@
 package com.example.insurance.policyservice.policy.domain;
 
+import com.example.insurance.events.policy.PolicyCancelled;
 import com.example.insurance.policyservice.catalogue.api.CoverType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -92,6 +93,18 @@ public class Policy {
   @Column(name = "payment_id", unique = true)
   private UUID paymentId;
 
+  /** The first day without cover after a cancellation (M8b). */
+  @Column(name = "cancel_effective_date")
+  private LocalDate cancelEffectiveDate;
+
+  /** Why the policy was cancelled, a stable code such as {@code UNPAID} or {@code CUSTOMER}. */
+  @Column(name = "cancel_reason", length = 20)
+  private String cancelReason;
+
+  /** The refund the plan's rule gave at a customer cancellation (M8b, ADR-021). */
+  @Column(name = "refund_amount", precision = 19, scale = 2)
+  private BigDecimal refundAmount;
+
   /** Business version, sent in events (PLAN 10). Not the JPA lock version below. */
   @Column(name = "policy_version", nullable = false)
   private long policyVersion;
@@ -155,7 +168,37 @@ public class Policy {
   public void cancelUnpaid() {
     requirePendingPayment("cancel for non-payment");
     status = PolicyStatus.CANCELLED;
+    cancelReason = PolicyCancelled.REASON_UNPAID;
     policyVersion++;
+  }
+
+  /**
+   * The holder cancels (M8b, ADR-021). The status changes now; cover runs until the day before
+   * {@code effectiveDate}, which is where the notice period ends. The refund is computed by the
+   * caller from the policy's terms and is zero for a policy that was never paid.
+   */
+  public void cancelByCustomer(LocalDate effectiveDate, BigDecimal refund) {
+    if (status != PolicyStatus.ACTIVE && status != PolicyStatus.PENDING_PAYMENT) {
+      throw new IllegalStateException("Cannot cancel a policy that is " + status + ".");
+    }
+    status = PolicyStatus.CANCELLED;
+    cancelEffectiveDate = effectiveDate;
+    cancelReason = PolicyCancelled.REASON_CUSTOMER;
+    refundAmount = refund;
+    policyVersion++;
+  }
+
+  /** Cover ran to its end date (M8b). Only an active policy expires. */
+  public void expire() {
+    if (status != PolicyStatus.ACTIVE) {
+      throw new IllegalStateException("Cannot expire a policy that is " + status + ".");
+    }
+    status = PolicyStatus.EXPIRED;
+    policyVersion++;
+  }
+
+  public boolean isActive() {
+    return status == PolicyStatus.ACTIVE;
   }
 
   public boolean isPendingPayment() {
@@ -242,5 +285,17 @@ public class Policy {
 
   public Instant getCreatedAt() {
     return createdAt;
+  }
+
+  public LocalDate getCancelEffectiveDate() {
+    return cancelEffectiveDate;
+  }
+
+  public String getCancelReason() {
+    return cancelReason;
+  }
+
+  public BigDecimal getRefundAmount() {
+    return refundAmount;
   }
 }

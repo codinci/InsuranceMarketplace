@@ -5,6 +5,7 @@ import com.example.insurance.events.payment.PremiumFailed;
 import com.example.insurance.events.payment.PremiumPaid;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.events.policy.PolicyExpired;
 import com.example.insurance.events.policy.TermsSnapshot;
 import com.example.insurance.messaging.Inbox;
 import com.example.insurance.messaging.OutboxWriter;
@@ -14,6 +15,7 @@ import com.example.insurance.policyservice.policy.domain.PolicyMember;
 import com.example.insurance.policyservice.policy.messaging.Topics;
 import com.example.insurance.policyservice.policy.repository.PolicyMemberRepository;
 import com.example.insurance.policyservice.policy.repository.PolicyRepository;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -29,9 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class PolicyLifecycleService {
-
-  /** The reason sent in {@code PolicyCancelled} by the unpaid-policy job. */
-  public static final String REASON_UNPAID = "UNPAID";
 
   private static final Logger LOG = LoggerFactory.getLogger(PolicyLifecycleService.class);
 
@@ -104,8 +103,36 @@ public class PolicyLifecycleService {
             policy.getPolicyNumber(),
             policy.getHolderUserId(),
             policy.getPolicyVersion(),
-            REASON_UNPAID,
-            calendar.today()));
+            PolicyCancelled.REASON_UNPAID,
+            calendar.today(),
+            null));
+    return true;
+  }
+
+  /**
+   * Expires one active policy whose cover ended before {@code today} and sends {@code
+   * PolicyExpired}. Returns false when there is nothing to do, for example because the holder
+   * cancelled it a moment ago.
+   */
+  @Transactional
+  public boolean expire(UUID policyId, LocalDate today) {
+    Policy policy = policies.findById(policyId).orElse(null);
+    if (policy == null || !policy.isActive() || !policy.getEndDate().isBefore(today)) {
+      return false;
+    }
+    policy.expire();
+    outbox.record(
+        Topics.POLICY_EVENTS,
+        EventTypes.POLICY_EXPIRED,
+        PolicyExpired.VERSION,
+        policy.getId().toString(),
+        policy.getInsurerId().toString(),
+        new PolicyExpired(
+            policy.getId(),
+            policy.getPolicyNumber(),
+            policy.getHolderUserId(),
+            policy.getPolicyVersion(),
+            policy.getEndDate()));
     return true;
   }
 

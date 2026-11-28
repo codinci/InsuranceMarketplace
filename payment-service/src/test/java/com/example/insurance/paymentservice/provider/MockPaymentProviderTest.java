@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class MockPaymentProviderTest {
 
-  private final MockPaymentProvider provider = new MockPaymentProvider(List.of());
+  private final MockPaymentProvider provider = new MockPaymentProvider(List.of(), List.of());
 
   @Test
   void byDefaultTheChargeSucceedsWithAReference() {
@@ -42,7 +42,7 @@ class MockPaymentProviderTest {
   @Test
   void aPayoutToAConfiguredPayeeIsDeclinedAndOthersAreNot() {
     UUID declined = UUID.randomUUID();
-    MockPaymentProvider configured = new MockPaymentProvider(List.of(declined));
+    MockPaymentProvider configured = new MockPaymentProvider(List.of(declined), List.of());
 
     MockPaymentProvider.Charge refused = configured.payout(declined, new BigDecimal("1.00"), "KES");
     MockPaymentProvider.Charge paid =
@@ -51,5 +51,23 @@ class MockPaymentProviderTest {
     assertThat(refused.succeeded()).isFalse();
     assertThat(refused.failureReason()).isEqualTo(MockPaymentProvider.DECLINED);
     assertThat(paid.succeeded()).isTrue();
+  }
+
+  @Test
+  void aRefundSucceedsByDefaultAndIsDeclinedOnlyForAConfiguredHolder() {
+    UUID declined = UUID.randomUUID();
+    MockPaymentProvider configured = new MockPaymentProvider(List.of(), List.of(declined));
+
+    MockPaymentProvider.Charge refused = configured.refund(declined, new BigDecimal("1.00"), "KES");
+    MockPaymentProvider.Charge refunded =
+        configured.refund(UUID.randomUUID(), new BigDecimal("1.00"), "KES");
+
+    assertThat(refused.succeeded()).isFalse();
+    assertThat(refused.failureReason()).isEqualTo(MockPaymentProvider.DECLINED);
+    assertThat(refunded.succeeded()).isTrue();
+    assertThat(refunded.providerRef()).startsWith("mock-refund-");
+    assertThat(configured.payout(declined, BigDecimal.ONE, "KES").succeeded())
+        .as("a refund decline does not decline payouts")
+        .isTrue();
   }
 }

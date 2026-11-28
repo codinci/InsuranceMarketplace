@@ -96,6 +96,15 @@
       <groupId>io.github.resilience4j</groupId>
       <artifactId>resilience4j-retry</artifactId>
     </dependency>
+    <!-- Scheduled jobs run on one instance at a time (M8b, ADR-022). -->
+    <dependency>
+      <groupId>net.javacrumbs.shedlock</groupId>
+      <artifactId>shedlock-spring</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>net.javacrumbs.shedlock</groupId>
+      <artifactId>shedlock-provider-jdbc-template</artifactId>
+    </dependency>
 
     <!-- Tests -->
     <dependency>
@@ -164,6 +173,7 @@
                   <includes>
                     <include>com.example.insurance.policyservice.catalogue.rating</include>
                     <include>com.example.insurance.policyservice.catalogue.rules</include>
+                    <include>com.example.insurance.policyservice.policy.rules</include>
                   </includes>
                   <limits>
                     <limit>

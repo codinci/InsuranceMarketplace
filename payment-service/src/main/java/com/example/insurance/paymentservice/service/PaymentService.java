@@ -84,9 +84,10 @@ public class PaymentService {
   public PaymentResponse pay(
       UUID holderUserId, UUID paymentId, String idempotencyKey, boolean decline) {
     Payment payment = ownedPayment(holderUserId, paymentId);
-    if (payment.isPayout()) {
+    if (payment.paysOut()) {
       throw new ApiException(
-          ErrorCode.PAYMENT_NOT_PAYABLE, "A payout is paid out to you; there is nothing to pay.");
+          ErrorCode.PAYMENT_NOT_PAYABLE,
+          "A payout or refund is paid out to you; there is nothing to pay.");
     }
 
     Optional<PaymentTransaction> earlier = transactions.findByIdempotencyKey(idempotencyKey);
@@ -165,7 +166,10 @@ public class PaymentService {
     return PaymentResponse.of(payment, payment.getStatus());
   }
 
-  /** The caller's payments for one policy: at most one, because a reference has one payment. */
+  /**
+   * The caller's payments for one policy: its premium and, after a paid cancellation, its refund
+   * (one of each, by the unique reference).
+   */
   @Transactional(readOnly = true)
   public List<PaymentResponse> listForReference(UUID holderUserId, UUID referenceId) {
     return payments.findByHolderUserIdAndReferenceId(holderUserId, referenceId).stream()

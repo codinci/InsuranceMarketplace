@@ -5,6 +5,7 @@ import com.example.insurance.events.EventEnvelope;
 import com.example.insurance.events.EventTypes;
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.events.policy.PolicyExpired;
 import com.example.insurance.messaging.EventJson;
 import com.example.insurance.messaging.UnknownEventTypeException;
 import java.util.UUID;
@@ -37,6 +38,9 @@ public class PolicyEventListener {
     } else if (EventTypes.POLICY_CANCELLED.equals(type)) {
       EventEnvelope<PolicyCancelled> event = EventJson.envelope(message, PolicyCancelled.class);
       snapshots.onCancelled(event.eventId(), UUID.fromString(event.insurerId()), event.payload());
+    } else if (EventTypes.POLICY_EXPIRED.equals(type)) {
+      EventEnvelope<PolicyExpired> event = EventJson.envelope(message, PolicyExpired.class);
+      snapshots.onExpired(event.eventId(), UUID.fromString(event.insurerId()), event.payload());
     } else {
       throw new UnknownEventTypeException(type);
     }

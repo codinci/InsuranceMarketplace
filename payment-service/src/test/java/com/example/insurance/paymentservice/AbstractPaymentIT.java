@@ -168,7 +168,7 @@ abstract class AbstractPaymentIT {
 
   protected static Object policyCancelledPayload(UUID policyId) {
     return new PolicyCancelled(
-        policyId, "POL-TEST", UUID.randomUUID(), 2, "UNPAID", LocalDate.of(2026, 12, 1));
+        policyId, "POL-TEST", UUID.randomUUID(), 2, "UNPAID", LocalDate.of(2026, 12, 1), null);
   }
 
   /** A consumer that reads a topic from the beginning, under its own group. */

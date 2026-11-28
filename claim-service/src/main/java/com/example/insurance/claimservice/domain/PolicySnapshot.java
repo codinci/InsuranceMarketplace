@@ -2,6 +2,7 @@ package com.example.insurance.claimservice.domain;
 
 import com.example.insurance.events.policy.PolicyActivated;
 import com.example.insurance.events.policy.PolicyCancelled;
+import com.example.insurance.events.policy.PolicyExpired;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -114,6 +115,19 @@ public class PolicySnapshot {
     status = SnapshotStatus.CANCELLED;
     cancelEffectiveDate = event.effectiveDate();
     cancelReason = event.reason();
+    policyVersion = event.policyVersion();
+    updatedAt = now;
+    return true;
+  }
+
+  /** Applies {@code PolicyExpired} if it is newer than what is stored (M8b). */
+  public boolean applyExpired(PolicyExpired event, UUID eventInsurerId, Instant now) {
+    if (event.policyVersion() <= policyVersion) {
+      return false;
+    }
+    policyNumber = event.policyNumber();
+    insurerId = eventInsurerId;
+    status = SnapshotStatus.EXPIRED;
     policyVersion = event.policyVersion();
     updatedAt = now;
     return true;

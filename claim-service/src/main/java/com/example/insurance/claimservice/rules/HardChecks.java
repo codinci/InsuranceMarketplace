@@ -84,8 +84,9 @@ public final class HardChecks {
 
   static Assessment policyInForce(ClaimFacts claim, PolicyFacts policy) {
     LocalDate incident = claim.incidentDate();
-    boolean active =
-        "ACTIVE".equals(policy.status())
+    // An expired policy still covers what happened during cover (M8b).
+    boolean coveredPeriod =
+        ("ACTIVE".equals(policy.status()) || "EXPIRED".equals(policy.status()))
             && !incident.isBefore(policy.coverStart())
             && !incident.isAfter(policy.coverEnd());
     boolean cancelledBefore =
@@ -93,7 +94,7 @@ public final class HardChecks {
             && policy.cancelEffectiveDate() != null
             && !incident.isBefore(policy.coverStart())
             && incident.isBefore(policy.cancelEffectiveDate());
-    return active || cancelledBefore
+    return coveredPeriod || cancelledBefore
         ? Assessment.pass(POLICY_IN_FORCE, "The policy was in force on the incident date.")
         : Assessment.fail(POLICY_IN_FORCE, "The policy was not in force on the incident date.");
   }

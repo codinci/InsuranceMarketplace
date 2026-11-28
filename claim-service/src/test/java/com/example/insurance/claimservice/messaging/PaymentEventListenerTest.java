@@ -83,6 +83,14 @@ class PaymentEventListenerTest {
   }
 
   @Test
+  void refundEventsAreSkippedRatherThanDeadLettered() {
+    listener.onPaymentEvent(message("RefundSucceeded", "{}"));
+    listener.onPaymentEvent(message("RefundFailed", "{}"));
+
+    verifyNoInteractions(outcomes);
+  }
+
+  @Test
   void anUnknownTypeIsRefusedSoItGoesToTheDeadLetterTopic() {
     assertThatThrownBy(() -> listener.onPaymentEvent(message("SomethingNew", "{}")))
         .isInstanceOf(UnknownEventTypeException.class);

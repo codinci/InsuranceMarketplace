@@ -37,9 +37,9 @@ Topics are created by the compose stack at start (M0b). Each topic has a `.DLT` 
 | Topic | Events (planned; built so far in bold) | Producer | Consumers |
 |---|---|---|---|
 | `user.events` | **UserRegistered** (M8a) | auth-service | notification-service (M8a) |
-| `policy.events` | **PolicyActivated**, **PolicyCancelled**, PolicyExpired | policy-service | payment-service (M4b), claim-service, notification-service (M8a) |
-| `payment.events` | **PremiumPaid**, **PremiumFailed**, **PayoutSucceeded**, **PayoutFailed** | payment-service | policy-service (premium events, M4b), claim-service (payout events, M7), notification-service (M8a) |
-| `claim.events` | **ClaimSubmitted**, **ClaimInfoRequested**, **ClaimApproved**, **ClaimRejected** | claim-service | payment-service (`ClaimApproved`, M7), notification-service (M8a) |
+| `policy.events` | **PolicyActivated**, **PolicyCancelled**, **PolicyExpired** (M8b) | policy-service | payment-service (M4b; refunds from M8b), claim-service, notification-service (M8a) |
+| `payment.events` | **PremiumPaid**, **PremiumFailed**, **PayoutSucceeded**, **PayoutFailed**, **RefundSucceeded**, **RefundFailed** (M8b) | payment-service | policy-service (premium events, M4b), claim-service (payout events, M7), notification-service (M8a) |
+| `claim.events` | **ClaimSubmitted**, **ClaimInfoRequested**, **ClaimApproved**, **ClaimRejected** | claim-service | payment-service (`ClaimApproved`, M7), policy-service (`ClaimSubmitted`, M8b), notification-service (M8a) |
 
 Payload schemas for each event are added in the milestone that introduces the producer (see PLAN 10). The payload records live in `common-events`; the `type` names are constants in `EventTypes`.
 
@@ -48,7 +48,7 @@ Payload schemas for each event are added in the milestone that introduces the pr
 - **Producers** write the event to an `outbox_events` table in the same transaction as the business change. A relay sends unsent rows to Kafka every second and marks a row published only after the broker acknowledges it, so a crash causes a resend, never a loss. The relay stops at the first failure, so later events about the same aggregate are not sent out of order.
 - **Consumers** record each applied `eventId` in a `processed_events` table (the inbox) in the same transaction as their change. A redelivered event is skipped.
 - **Failures:** a consumer retries a failing message three times, one second apart, then sends it to `<topic>.DLT`. An unknown `type` goes to the DLT at once.
-- **Keys:** the aggregate id (the policy id for every event below), so all events about one policy land on one partition, in order.
+- **Keys:** the aggregate id: the policy id for policy, premium and refund events, the claim id for claim and payout events, the user id for `UserRegistered`. All events about one aggregate land on one partition, in order.
 - **Replay (ADR-019):** after the cause is fixed, `DeadLetterReplayer` (common-messaging) sends dead letters back to their original topic with the same key. See the runbook. The inbox makes a replay of an already applied event harmless.
 - **Additive changes only (ADR-020):** a new field may be added to a payload without a new version, because consumers ignore fields they do not know. An event published before the field existed reads with the field `null`; a consumer must cope with that. Renaming, removing or changing the meaning of a field needs a new `version`.
 - **Headers:** every message carries the event `type` as the Kafka header `eventType`, so a consumer or a tool can route or filter without parsing the JSON.
@@ -125,22 +125,52 @@ Sent when a policy becomes `ACTIVE`. It carries everything claim-service needs t
 
 ### PolicyCancelled v1 (`policy.events`, policy-service)
 
-In M4b the only producer is the unpaid-policy job: a policy still `PENDING_PAYMENT` 24 hours after purchase is cancelled with `reason` `UNPAID`. payment-service then marks its payment `EXPIRED`, and a late pay attempt answers 409 `PAYMENT_EXPIRED`. Cancelling a paid policy (D7) arrives in M8b.
+Two producers, both in policy-service:
+
+- **The unpaid-policy job (M4b):** a policy still `PENDING_PAYMENT` 24 hours after purchase is cancelled with `reason` `UNPAID` and no `refundAmount`. payment-service then marks its payment `EXPIRED`, and a late pay attempt answers 409 `PAYMENT_EXPIRED`.
+- **The holder (M8b, D7, ADR-021):** `POST /api/v1/policies/{id}/cancel` sends `reason` `CUSTOMER`. For an active policy `effectiveDate` is today plus the plan's `noticeDays` (the first day without cover) and `refundAmount` is what the plan's refund rule gives, possibly `0.00`. A policy awaiting payment is cancelled with `effectiveDate` today and `refundAmount` `0.00`.
 
 ```json
 {
   "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
   "policyNumber": "POL-ACACIA-2026-000002",
   "holderUserId": "7b3d9f10-5a2e-4c61-8d4f-0e1a2b3c4d5e",
-  "policyVersion": 2,
-  "reason": "UNPAID",
-  "effectiveDate": "2026-11-22"
+  "policyVersion": 3,
+  "reason": "CUSTOMER",
+  "effectiveDate": "2027-01-31",
+  "refundAmount": 33500.00
 }
 ```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `reason` | string | `UNPAID` or `CUSTOMER` |
+| `effectiveDate` | date | The first day without cover. Incidents before it stay covered |
+| `refundAmount` | decimal or null | Added in M8b (additive, same version, ADR-020). The refund policy-service computed from the policy's terms snapshot. `null` for `UNPAID` and for events sent before M8b |
+
+**Consumer: payment-service (M4b, M8b).** A premium still payable is marked `EXPIRED`. A paid premium with a `refundAmount` above zero gets one refund payment (reference type `REFUND`), never more than the premium received; see `RefundSucceeded` below.
 
 `policyVersion` starts at 1 at purchase and increases with every change. A consumer that has seen a higher version for a policy ignores a lower one.
 
 **Consumer: claim-service (M5a, ADR-015).** Both events feed claim-service's policy read model. A change applies only when its `policyVersion` is higher than the stored one, so a redelivery or a late older event changes nothing. A `PolicyCancelled` that arrives before its `PolicyActivated` leaves a row with no holder; the later activation is then not newer and is ignored. Unknown `type` values go to `policy.events.DLT`.
+
+### PolicyExpired v1 (`policy.events`, policy-service, M8b)
+
+Sent once by the expiry job, the day after an active policy's last day of cover. Key: the policy id.
+
+```json
+{
+  "policyId": "03834615-4b48-4152-a6fc-834c06b1139a",
+  "policyNumber": "POL-ACACIA-2026-000002",
+  "holderUserId": "7b3d9f10-5a2e-4c61-8d4f-0e1a2b3c4d5e",
+  "policyVersion": 3,
+  "expiredOn": "2027-11-30"
+}
+```
+
+`expiredOn` is the last day of cover. claim-service stores the policy as `EXPIRED` and still accepts claims for incidents up to that day; payment-service skips the event.
+
+Contract tests: `EventPayloadContractTest` (`aCustomerCancellationCarriesAnExactRefund`, `aPolicyCancelledFromBeforeM8bHasNoRefundAndStillReads`, `policyExpiredRoundTrips`).
 
 ### ClaimSubmitted v1 (`claim.events`, claim-service, M5b)
 
@@ -207,6 +237,34 @@ Sent for a failed first attempt and again for every failed retry. Fields as for 
 
 Contract tests: `EventPayloadContractTest` (`payoutSucceededRoundTripsAndKeepsMoneyExact`, `payoutFailedRoundTripsWithAStableReason`, `thePayoutEventTypesAreTheNamesOnTheWire`).
 
+### RefundSucceeded v1 (`payment.events`, payment-service, M8b)
+
+Sent in the same transaction as a successful refund attempt, for the first attempt and for a successful retry. Key: the **policy id**, like the premium events of that policy.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `paymentId` | UUID | The refund payment |
+| `policyId`, `policyNumber` | UUID, string | The cancelled policy |
+| `holderUserId` | UUID | The customer who was refunded |
+| `amount` | decimal | What was refunded. `NUMERIC(19,2)` |
+| `currency` | string | ISO code |
+| `providerRef` | string | The mock provider's reference |
+| `refundedAt` | instant | When the provider confirmed the refund |
+
+### RefundFailed v1 (`payment.events`, payment-service, M8b)
+
+Sent for a failed first attempt and for every failed retry. Fields as for `RefundSucceeded`, with `reason` (a stable code such as `PROVIDER_DECLINED`) and `failedAt` in place of `providerRef` and `refundedAt`. An admin retries with `POST /api/v1/payments/{id}/retry-refund` and an `Idempotency-Key`.
+
+Contract tests: `EventPayloadContractTest` (`refundSucceededRoundTripsAndKeepsMoneyExact`, `refundFailedRoundTripsWithAStableReason`, `theLifecycleEventTypesAreTheNamesOnTheWire`).
+
+### The refund flow (M8b, ADR-021)
+
+1. The holder cancels. In one transaction policy-service computes the refund from the terms snapshot (and its own claim count, below), marks the policy CANCELLED and writes `PolicyCancelled` with `refundAmount`.
+2. payment-service reads it and, for a paid premium and a refund above zero, creates one refund payment. The event's `eventId` is its intent key and the idempotency key of its first attempt; the unique `(reference_type, reference_id)` allows one refund per policy, so a new event id for the same cancellation makes none.
+3. The mock provider pays or declines; `RefundSucceeded` or `RefundFailed` goes out through the outbox. policy-service and claim-service skip both.
+
+**The claim counter.** policy-service reads `ClaimSubmitted` from `claim.events` into its own `policy_claims` table (one row per claim id, with the inbox), so the `noRefundIfClaims` rule needs no call to claim-service. The other claim events are skipped. The count can lag by the time an event takes to arrive.
+
 ### The payout saga (M7, ADR-018)
 
 1. claim-service approves a claim: in one transaction the claim goes APPROVED then PAYOUT_PENDING and `ClaimApproved` is written to the outbox (key: claim id).
@@ -215,7 +273,7 @@ Contract tests: `EventPayloadContractTest` (`payoutSucceededRoundTripsAndKeepsMo
 
 Redelivery is harmless at every step: each consumer checks its inbox, and a claim can only have one payout row.
 
-Skipped by design: payment-service ignores `ClaimSubmitted`, `ClaimRejected` and `ClaimInfoRequested`; policy-service ignores the two payout events; claim-service ignores the two premium events. Only unknown types go to the dead-letter topic.
+Skipped by design: payment-service ignores `ClaimSubmitted`, `ClaimRejected`, `ClaimInfoRequested`, `PolicyActivated` and `PolicyExpired`; policy-service ignores the payout and refund events and every claim event except `ClaimSubmitted`; claim-service ignores the premium and refund events. Only unknown types go to the dead-letter topic.
 
 ## Policy terms snapshot v1
 
@@ -285,7 +343,10 @@ notification-service reads all four topics and writes one `notification_log` row
 | `ClaimRejected` | Claim rejected | `holderUserId` |
 | `PayoutSucceeded` | Claim paid | `holderUserId` |
 | `PayoutFailed` | Payout delayed | `holderUserId` |
+| `PolicyExpired` | Your policy has ended | `holderUserId` |
+| `RefundSucceeded` | Refund paid | `holderUserId` |
+| `RefundFailed` | Refund delayed | `holderUserId` |
 
 - **Idempotent twice:** the inbox skips a redelivered `eventId`, and `notification_log.event_id` is unique. A different `eventId` for the same business fact is a different event to this service and sends a second notification; producers own "once per fact".
 - **No personal data in the text:** bodies hold numbers and amounts, never a name or an address.
-- **Unknown `type`:** goes to the dead-letter topic of the topic it arrived on. `PolicyExpired` is added when M8b publishes it.
+- **Unknown `type`:** goes to the dead-letter topic of the topic it arrived on.

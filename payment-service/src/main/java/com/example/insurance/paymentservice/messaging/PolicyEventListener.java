@@ -33,8 +33,8 @@ public class PolicyEventListener {
     if (EventTypes.POLICY_CANCELLED.equals(type)) {
       EventEnvelope<PolicyCancelled> event = EventJson.envelope(message, PolicyCancelled.class);
       expiry.onPolicyCancelled(event.eventId(), event.payload());
-    } else if (EventTypes.POLICY_ACTIVATED.equals(type)) {
-      LOG.debug("PolicyActivated is not used by payment-service; skipped.");
+    } else if (EventTypes.POLICY_ACTIVATED.equals(type) || EventTypes.POLICY_EXPIRED.equals(type)) {
+      LOG.debug("{} is not used by payment-service; skipped.", type);
     } else {
       throw new UnknownEventTypeException(type);
     }

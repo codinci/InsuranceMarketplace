@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,8 +18,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Cancels policies left unpaid for longer than the deadline, 24 hours by default (PLAN 8.2, M4b).
- * One instance runs it; a shared lock (ShedLock) is deferred to M8 (PLAN 11). Each policy is
- * cancelled in its own transaction, so one failure does not hold up the rest.
+ * With several instances, ShedLock lets one run at a time (ADR-022). Each policy is cancelled in
+ * its own transaction, so one failure does not hold up the rest.
  */
 @Component
 public class UnpaidPolicyJob {
@@ -43,6 +44,7 @@ public class UnpaidPolicyJob {
   }
 
   @Scheduled(fixedDelayString = "${policy.unpaid.check-delay-ms:60000}")
+  @SchedulerLock(name = "unpaid-policy-job", lockAtMostFor = "PT10M", lockAtLeastFor = "PT30S")
   public void run() {
     cancelOverdue(clock.instant());
   }
